@@ -141,3 +141,7 @@ The probe now applies the rebased Android patch after the VeronicaX patch (not j
 - First workflow attempt (#45036261967) stopped during Android SDK setup because the setup action requested the obsolete SDK package `tools`, which is no longer available in the repository.
 - The workflow was changed to use the runner's preinstalled Android SDK Manager directly and install NDK 27.2.12479018 plus CMake 3.31.1. Retry: [run #45036352816](https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45036352816).
 - The retry is not yet confirmed as a compile pass. Do not mark the SDK build gate complete until its CMake configure and native compilation steps finish successfully.
+
+
+- The direct-SDK-manager retry #45036352816 also stopped before CMake: the workflow's `yes | sdkmanager --licenses` pipeline inherited Bash `pipefail` and returned failure when the license process closed its input. The workflow now disables `pipefail` only around license acceptance, then restores it before package installation.
+- Current retry: [run #45036455268](https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45036455268). At the time of this update it is still running its build-tools setup; NDK installation and the actual SDK compile have not yet been confirmed.
