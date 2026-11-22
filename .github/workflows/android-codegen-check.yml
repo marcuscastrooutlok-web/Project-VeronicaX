@@ -47,6 +47,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y clang ninja-build cmake pkg-config \
+            libc++-dev libc++abi-dev \
             libx11-xcb-dev libwayland-dev libxkbcommon-dev libegl1-mesa-dev \
             libdrm-dev libgbm-dev libudev-dev libusb-1.0-0-dev \
             libthai-dev libunwind-dev
@@ -63,7 +64,10 @@ jobs:
         working-directory: thirdparty/rexglue-sdk
         run: |
           set -euo pipefail
-          cmake --preset linux-amd64
+          cmake --preset linux-amd64 \
+            -DCMAKE_CXX_FLAGS="-march=x86-64-v2 -stdlib=libc++" \
+            -DCMAKE_EXE_LINKER_FLAGS="-stdlib=libc++" \
+            -DCMAKE_SHARED_LINKER_FLAGS="-stdlib=libc++"
           cmake --build --preset linux-amd64-release --target rexglue --parallel 2
 
       - name: Run VeronicaX codegen
