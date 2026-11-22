@@ -43,12 +43,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang ninja-build cmake pkg-config
 
+      - name: Checkout pinned ReXGlue SDK
+        run: |
+          set -euo pipefail
+          mkdir -p thirdparty
+          git clone https://github.com/rexglue/rexglue-sdk.git thirdparty/rexglue-sdk
+          git -C thirdparty/rexglue-sdk checkout bd833a2
+          git -C thirdparty/rexglue-sdk submodule update --init --recursive
+
       - name: Build pinned ReXGlue host codegen
         working-directory: thirdparty/rexglue-sdk
         run: |
           set -euo pipefail
-          git checkout bd833a2
-          git submodule update --init --recursive
           cmake --preset linux-amd64
           cmake --build --preset linux-amd64-release --target rexglue --parallel 2
 
