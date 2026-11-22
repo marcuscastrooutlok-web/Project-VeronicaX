@@ -79,7 +79,7 @@ jobs:
                 const auto& binary = ctx.binary();
                 for (uint32_t target : targets) {
                   REXCODEGEN_WARN("VX_DISASM target=0x{:08X}", target);
-                  for (int32_t delta = -32; delta <= 32; delta += 4) {
+                  for (int32_t delta = -256; delta <= 256; delta += 4) {
                     uint32_t address = static_cast<uint32_t>(target + delta);
                     const uint8_t* bytes = binary.translate(address);
                     if (!bytes) {
