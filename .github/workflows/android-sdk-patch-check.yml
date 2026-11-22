@@ -8,7 +8,9 @@ on:
       - android-arm64
     paths:
       - "patches/rexglue-sdk-bd833a2-veronicax.patch"
+      - "patches/rexglue-sdk-bd833a2-android.patch"
       - "scripts/check-android-sdk-patch.sh"
+      - "scripts/probe-android-patch-compat.sh"
       - ".github/workflows/android-sdk-patch-check.yml"
 
 permissions:
@@ -24,5 +26,5 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y git
       - name: Verify pinned SDK patch
         run: bash scripts/check-android-sdk-patch.sh
-      - name: Probe Android reference patch compatibility
+      - name: Verify rebased Android patch compatibility
         run: bash scripts/probe-android-patch-compat.sh
