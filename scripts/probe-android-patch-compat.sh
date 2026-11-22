@@ -3,8 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SDK_DIR="${1:-${RUNNER_TEMP:-/tmp}/rexglue-android-probe}"
-REF_PATCH="${RUNNER_TEMP:-/tmp}/rexglue-reference-android.patch"
-REF_REPO_COMMIT="0a79f938ab839c187d25bd7bf48e51e30a6150be"
+ANDROID_PATCH="${RUNNER_TEMP:-/tmp}/rexglue-veronicax-android.patch"
 ANDROID_PATCH_COMMIT="3c1d22ef0cc47c7404cd400964df2fe172042c88"
 ANDROID_PATCH_URL="https://raw.githubusercontent.com/marcuscastrooutlok-web/Project-VeronicaX/${ANDROID_PATCH_COMMIT}/patches/rexglue-sdk-bd833a2-android.patch"
 
@@ -20,7 +19,7 @@ echo "Applying the mandatory VeronicaX patch first..."
 git -C "$SDK_DIR" apply "$ROOT/patches/rexglue-sdk-bd833a2-veronicax.patch"
 
 echo "Downloading repository-owned Android patch from $ANDROID_PATCH_COMMIT..."
-curl --fail --location --silent --show-error "$ANDROID_PATCH_URL" --output "$REF_PATCH"
+curl --fail --location --silent --show-error "$ANDROID_PATCH_URL" --output "$ANDROID_PATCH"
 
 echo "Checking rebased Android patch against the already-patched bd833a2 SDK..."
 if git -C "$SDK_DIR" apply --check --verbose "$REF_PATCH"; then
