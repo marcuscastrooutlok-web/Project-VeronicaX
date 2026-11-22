@@ -192,7 +192,7 @@ int RunAndroidApp(int argc, char** argv) {
   }
   args.emplace_back(fmt::format("--user_data_root={}", external_dir + "/data"));
   args.emplace_back(
-      fmt::format("--log_file={}", log_dir + "/dantes_inferno.log"));
+      fmt::format("--log_file={}", log_dir + "/veronicax.log"));
 
   // Performance (mobile memory bandwidth): the SDK's conservative default
   // (clear_memory_page_state=true) invalidates every CPU-uploaded page at
