@@ -59,6 +59,43 @@ jobs:
           git -C thirdparty/rexglue-sdk checkout bd833a2
           git -C thirdparty/rexglue-sdk submodule update --init --recursive
 
+      - name: Add temporary XEX branch-target diagnostics to pinned SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("thirdparty/rexglue-sdk/src/codegen/project_recompiler.cpp")
+          s = p.read_text()
+          needle = "    contexts.push_back({std::move(ctx), &targeted[0], std::move(entry_display)});"
+          diagnostic = r"""
+              // Temporary VeronicaX diagnostic: dump loaded PPC words around unresolved targets.
+              {
+                constexpr uint32_t targets[] = {
+                    0x827E9A60, 0x829E2470, 0x823D1438, 0x829E2458, 0x82221830,
+                    0x82B85AE8, 0x828A7E40, 0x829E2244, 0x8281D028};
+                const auto& binary = ctx.binary();
+                for (uint32_t target : targets) {
+                  REXCODEGEN_WARN("VX_DISASM target=0x{:08X}", target);
+                  for (int32_t delta = -32; delta <= 32; delta += 4) {
+                    uint32_t address = static_cast<uint32_t>(target + delta);
+                    const uint8_t* bytes = binary.translate(address);
+                    if (!bytes) {
+                      REXCODEGEN_WARN("VX_DISASM 0x{:08X}: <unmapped>", address);
+                      continue;
+                    }
+                    REXCODEGEN_WARN("VX_DISASM 0x{:08X}: {:02X}{:02X}{:02X}{:02X}",
+                                    address, bytes[0], bytes[1], bytes[2], bytes[3]);
+                  }
+                }
+              }
+          """
+          if s.count(needle) != 1:
+              raise SystemExit("Could not uniquely locate entry CodegenContext insertion point")
+          p.write_text(s.replace(needle, diagnostic + "\n" + needle))
+          print("Inserted temporary loaded-XEX branch-target diagnostics.")
+          PY
+
       - name: Build pinned ReXGlue host codegen
         working-directory: thirdparty/rexglue-sdk
         run: |
