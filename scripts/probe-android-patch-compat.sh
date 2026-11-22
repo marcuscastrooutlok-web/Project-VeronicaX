@@ -5,8 +5,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SDK_DIR="${1:-${RUNNER_TEMP:-/tmp}/rexglue-android-probe}"
 REF_PATCH="${RUNNER_TEMP:-/tmp}/rexglue-reference-android.patch"
 REF_REPO_COMMIT="0a79f938ab839c187d25bd7bf48e51e30a6150be"
-REF_PATCH_PATH="patches/sdk/rexglue-sdk-v0.10.0-android.patch"
-REF_URL="https://raw.githubusercontent.com/deivid22srk/hells-gate-recomp-android/${REF_REPO_COMMIT}/${REF_PATCH_PATH}"
+ANDROID_PATCH_COMMIT="3c1d22ef0cc47c7404cd400964df2fe172042c88"
+ANDROID_PATCH_URL="https://raw.githubusercontent.com/marcuscastrooutlok-web/Project-VeronicaX/${ANDROID_PATCH_COMMIT}/patches/rexglue-sdk-bd833a2-android.patch"
 
 if [[ -e "$SDK_DIR" ]]; then
   echo "Refusing to reuse existing SDK directory: $SDK_DIR" >&2
@@ -19,15 +19,14 @@ git -C "$SDK_DIR" checkout --detach bd833a2
 echo "Applying the mandatory VeronicaX patch first..."
 git -C "$SDK_DIR" apply "$ROOT/patches/rexglue-sdk-bd833a2-veronicax.patch"
 
-echo "Downloading pinned Android reference patch from $REF_REPO_COMMIT..."
-curl --fail --location --silent --show-error "$REF_URL" --output "$REF_PATCH"
+echo "Downloading repository-owned Android patch from $ANDROID_PATCH_COMMIT..."
+curl --fail --location --silent --show-error "$ANDROID_PATCH_URL" --output "$REF_PATCH"
 
-echo "Checking reference Android patch against the already-patched bd833a2 SDK..."
+echo "Checking rebased Android patch against the already-patched bd833a2 SDK..."
 if git -C "$SDK_DIR" apply --check --verbose "$REF_PATCH"; then
-  echo "PASS: reference Android patch applies after the VeronicaX patch."
-  echo "This is only a compatibility probe; do not treat the reference patch as production-ready."
+  echo "PASS: repository-owned Android patch applies after the VeronicaX patch."
 else
-  echo "::warning::Reference Android patch has conflicts against bd833a2 after the VeronicaX patch."
+  echo "::warning::Repository-owned Android patch still has conflicts against bd833a2 after the VeronicaX patch."
   echo "The diagnostics above identify files/hunks requiring a selective rebase."
   exit 1
 fi
