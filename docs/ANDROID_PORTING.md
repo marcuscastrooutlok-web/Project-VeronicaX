@@ -111,3 +111,20 @@ A CI probe now tests the pinned Android reference patch from `deivid22srk/hells-
 2. Generate a clean repository-owned Android patch.
 3. In CI, apply VeronicaX patch first and the derived Android patch second; run `git diff --check` and verify all expected Android files.
 4. Only then configure and compile the Android SDK.
+
+
+## Android patch rebased for the VeronicaX SDK pin (2026-11-22)
+
+A repository-owned Android patch was derived from the reference Android implementation and rebased onto ReXGlue `bd833a2`, with the VeronicaX game patch applied first.
+
+- Patch: `patches/rexglue-sdk-bd833a2-android.patch`.
+- Probe script: `scripts/probe-android-patch-compat.sh`.
+- CI run confirming clean applicability: [run #45036072235](https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45036072235).
+- The exact three previously conflicting files were selectively rebased:
+  - `CMakeLists.txt`: Android arm64 platform selection is inserted before the generic UNIX branch; the reference's x86-only compiler-flag change was not carried into the Android branch.
+  - `src/codegen/builders/system.cpp`: emits the three PPC barrier macros provided by the Android codegen precompiled-header template; this preserves the Android reference's ARM64 memory-ordering behavior on the pinned SDK, whose baseline already contains native fence generation.
+  - `src/core/logging.cpp`: adds an Android logcat sink, uses the generic `ReXGlue` tag (not the reference game's Dante's Inferno tag), and retains the early sink for Android app diagnostics.
+- CI confirmed the VeronicaX patch applies first, then the Android patch passes `git apply --check`. The probe was strengthened to apply the Android patch, run `git diff --check`, and verify key Android runtime source files exist.
+- All other Android patch hunks checked cleanly, including the overlapping `src/system/xmemory.cpp` hunks after the VeronicaX patch.
+
+**Important scope:** this is a clean patch-application result, not yet a successful Android SDK compile. The next gate is to run the Android NDK/CMake configure and compile against the pinned SDK and its submodules. No APK has been built.
