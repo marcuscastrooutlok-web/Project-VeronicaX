@@ -1,0 +1,80 @@
+name: Android host Codegen check
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  codegen:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Project-VeronicaX
+        uses: actions/checkout@v4
+        with:
+          ref: android-arm64
+          submodules: recursive
+
+      - name: Checkout private game input
+        uses: actions/checkout@v4
+        with:
+          repository: marcuscastrooutlok-web/recvx-private-build
+          ref: veronicax-game-input
+          token: ${{ secrets.VERONICAX_GAME_REPO_TOKEN }}
+          path: private-game-input
+          sparse-checkout: |
+            game/Default.xex
+          sparse-checkout-cone-mode: false
+
+      - name: Verify and stage private XEX
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s private-game-input/game/Default.xex
+          mkdir -p game/extracted
+          install -m 600 private-game-input/game/Default.xex game/extracted/Default.xex
+          echo "XEX size: $(stat -c '%s' game/extracted/Default.xex) bytes"
+          sha256sum game/extracted/Default.xex
+          test "$(sha256sum game/extracted/Default.xex | cut -d' ' -f1)" = "c552c6995462a5cefdd52c07bebd28fff4481164b19a445c636d7b54736f3c70"
+
+      - name: Install host build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang ninja-build cmake pkg-config
+
+      - name: Build pinned ReXGlue host codegen
+        working-directory: thirdparty/rexglue-sdk
+        run: |
+          set -euo pipefail
+          git checkout bd833a2
+          git submodule update --init --recursive
+          cmake --preset linux-amd64
+          cmake --build --preset linux-amd64-release --target rexglue --parallel 2
+
+      - name: Run VeronicaX codegen
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_BIN="thirdparty/rexglue-sdk/out/linux-amd64/Release/rexglue"
+          if [[ ! -x "$SDK_BIN" ]]; then
+            SDK_BIN="thirdparty/rexglue-sdk/out/linux-amd64/rexglue"
+          fi
+          test -x "$SDK_BIN"
+          "$SDK_BIN" codegen veronicax_manifest.toml
+
+      - name: Verify generated CMake and sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s generated/default/sources.cmake
+          test -s generated/default/codegen.build.stamp
+          test -s generated/default/veronicax_pch.h
+          grep -q 'set(GENERATED_SOURCES' generated/default/sources.cmake
+          echo "Codegen output verified."
+          find generated/default -maxdepth 1 -type f -printf '%f %s bytes\n' | sort
+
+      - name: Remove private game input
+        if: always()
+        run: |
+          rm -rf private-game-input game/extracted/Default.xex
