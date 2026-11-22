@@ -21,3 +21,11 @@ end = 0x8281BB00    # b from 0x8287C0A4
 
 [functions."0x827F3088"]
 end = 0x827F30C8    # gap after sub_827F3070; first hit during boot
+
+# Additional branch targets confirmed from loaded-XEX diagnostics.
+
+[functions."0x827E9A60"]
+end = 0x827E9A68    # li r3,0; blr -- shared return-zero function (206 callers)
+
+[functions."0x8281D028"]
+end = 0x8281D030    # stw r4,132(r3); blr -- 8-byte setter
