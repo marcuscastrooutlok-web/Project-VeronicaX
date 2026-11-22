@@ -22,7 +22,7 @@ echo "Downloading repository-owned Android patch from $ANDROID_PATCH_COMMIT..."
 curl --fail --location --silent --show-error "$ANDROID_PATCH_URL" --output "$ANDROID_PATCH"
 
 echo "Checking rebased Android patch against the already-patched bd833a2 SDK..."
-if git -C "$SDK_DIR" apply --check --verbose "$REF_PATCH"; then
+if git -C "$SDK_DIR" apply --check --verbose "$ANDROID_PATCH"; then
   echo "PASS: repository-owned Android patch applies after the VeronicaX patch."
 else
   echo "::warning::Repository-owned Android patch still has conflicts against bd833a2 after the VeronicaX patch."
