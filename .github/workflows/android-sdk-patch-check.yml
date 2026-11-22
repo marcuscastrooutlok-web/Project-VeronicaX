@@ -24,3 +24,5 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y git
       - name: Verify pinned SDK patch
         run: bash scripts/check-android-sdk-patch.sh
+      - name: Probe Android reference patch compatibility
+        run: bash scripts/probe-android-patch-compat.sh
