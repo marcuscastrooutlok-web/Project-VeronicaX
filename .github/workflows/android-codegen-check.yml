@@ -46,7 +46,7 @@ jobs:
       - name: Install host build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang ninja-build cmake pkg-config g++-13 libstdc++-13-dev \
+          sudo apt-get install -y clang ninja-build cmake pkg-config g++-14 libstdc++-14-dev \
             libx11-xcb-dev libwayland-dev libxkbcommon-dev libegl1-mesa-dev \
             libdrm-dev libgbm-dev libudev-dev libusb-1.0-0-dev \
             libthai-dev
