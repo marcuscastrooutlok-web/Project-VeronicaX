@@ -50,7 +50,7 @@ jobs:
             libc++-dev libc++abi-dev \
             libx11-xcb-dev libwayland-dev libxkbcommon-dev libegl1-mesa-dev \
             libdrm-dev libgbm-dev libudev-dev libusb-1.0-0-dev \
-            libthai-dev libunwind-dev
+            libthai-dev
 
       - name: Checkout pinned ReXGlue SDK
         run: |
