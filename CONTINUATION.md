@@ -268,3 +268,15 @@ A ausência de uma entrada exata registrada ou de um bloco interno cobrindo o de
 - Nenhuma alteração em `config/functions.toml` ou `config/gaps.toml`.
 - Nenhum novo workflow foi disparado; nenhuma correção foi presumida.
 - Próximo passo: obter no log/diagnóstico do codegen os limites efetivos dos blocos descobertos para cada função de origem e confrontar os sete destinos com esses blocos e com as entradas já registradas. Só então decidir se cada endereço exige override, expansão de bloco ou correção do manifesto/analyzer.
+
+
+## Confirmação do log completo do run #12 — 2026-11-22
+
+Foi baixado e conferido o log completo do job `codegen` (job `137364675907`) do run `45073234687`.
+- Checkout do projeto e do XEX privado, validação/staging do XEX e build do codegen host: sucesso.
+- Todas as fases do analyzer foram executadas: Register, Scan, Discover, GapFill, Merge e Validate.
+- O processo falhou exclusivamente na validação final: `11 unresolved calls`, após 58,3 s; os passos de verificar fontes/CMake gerados foram pulados porque a validação falhou.
+- O XEX privado foi removido do workspace no cleanup do job.
+- A lista de 11 branches coincide com a já registrada acima; não surgiu um novo erro de build do SDK nem de leitura do XEX.
+
+**Decisão para evitar retrabalho:** não repetir build do SDK nem coleta ampla de instruções. A próxima ação deve focar apenas nos quatro grupos de origem que aparecem no log: `0x829E21xx` (inclui quatro saltos para `0x829E2470`, um para `0x829E2458` e um para `0x829E2244`), `0x82221824`, `0x82B85AA4`, `0x828A7D18` e `0x82541CB0/0x82541CC0`. Determinar a cobertura de blocos dessas funções e fazer uma única correção mínima baseada nisso. Não reexecutar workflow até haver alteração concreta.
