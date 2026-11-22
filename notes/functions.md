@@ -79,3 +79,10 @@ function's code.
 
 | Address | Name | Evidence |
 |---|---|---|
+
+## Additional boundaries confirmed by loaded-XEX diagnostics
+
+| Address | End | Name | Evidence |
+|---|---|---|---|
+| 0x827E9A60 | 0x827E9A68 | ReturnZero | 206 unresolved branches target this exact address; loaded instructions are `li r3,0; blr` |
+| 0x8281D028 | 0x8281D030 | – | Loaded instructions are `stw r4,132(r3); blr`, an 8-byte setter; the preceding function returns at 0x8281D01C |
