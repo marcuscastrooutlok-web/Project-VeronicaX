@@ -38,3 +38,18 @@ Graphics target: Vulkan (Android)
 ## Important status
 
 This document records the verified starting point and implementation requirements. It does **not** claim that Android support or an APK already exists. The Android target is not considered complete until a CI-produced APK passes packaging checks and is tested on device.
+
+
+## SDK patch compatibility review (2026-11-22)
+
+The Android reference port's SDK patches were inspected, not copied blindly.
+
+- Its Android patch is a 52,640-character `diff -ruN` against the upstream `v0.10.0` tree. It adds Android platform files and changes core memory/threading, SDL window/surface, and CMake selection.
+- Its separate performance patch is 19,907 characters and changes memory fault handling, Vulkan command processing, logging, and interrupt dispatch. Those performance changes are not assumed safe for VeronicaX.
+- The VeronicaX patch changes `include/rex/system/xmemory.h`, `src/system/xmemory.cpp`, and `src/system/xthread.cpp`. The Android reference patch also changes `src/system/xmemory.cpp`, so patch order and exact hunk compatibility must be tested; silently dropping either patch would regress game-specific memory behavior.
+- The fetched upstream SDK files `src/core/CMakeLists.txt`, `src/core/memory_posix.cpp`, `src/core/threading_posix.cpp`, `src/ui/CMakeLists.txt`, and `src/system/xmemory.cpp` have identical Git blob SHAs at refs `bd833a2` and `v0.10.0`. However, the top-level `CMakeLists.txt` and `src/ui/window_sdl.cpp` differ, so the Android patch is not proven to apply cleanly to `bd833a2`.
+- The Android patch also contains reference-project-specific codegen template integration (including an optional Dante's Inferno hook header); that must be removed or generalized before it can be used here.
+
+### Decision
+
+Do not import the reference Android or performance patches as-is. The next SDK task is to derive a VeronicaX-specific Android patch from the platform-only changes, retain the existing VeronicaX memory/thread fixes, then validate both patches against a clean `bd833a2` checkout with `git apply --check` before any Android build is attempted.
