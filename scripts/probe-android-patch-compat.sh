@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SDK_DIR="${1:-${RUNNER_TEMP:-/tmp}/rexglue-android-probe}"
 ANDROID_PATCH="${RUNNER_TEMP:-/tmp}/rexglue-veronicax-android.patch"
-ANDROID_PATCH_COMMIT="3c1d22ef0cc47c7404cd400964df2fe172042c88"
+ANDROID_PATCH_COMMIT="a3ab2855091d2879c02672f838bddf67c8f6c95a"
 ANDROID_PATCH_URL="https://raw.githubusercontent.com/marcuscastrooutlok-web/Project-VeronicaX/${ANDROID_PATCH_COMMIT}/patches/rexglue-sdk-bd833a2-android.patch"
 
 if [[ -e "$SDK_DIR" ]]; then
