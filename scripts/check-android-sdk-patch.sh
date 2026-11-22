@@ -16,13 +16,16 @@ echo "Checking the pinned VeronicaX SDK patch against ReXGlue bd833a2..."
 git -C "$SDK_DIR" apply --check "$ROOT/patches/rexglue-sdk-bd833a2-veronicax.patch"
 git -C "$SDK_DIR" apply "$ROOT/patches/rexglue-sdk-bd833a2-veronicax.patch"
 
-# Guard against accidentally testing a different SDK revision or an empty patch.
 test "$(git -C "$SDK_DIR" rev-parse --short HEAD)" = "bd833a2"
 git -C "$SDK_DIR" diff --check
-git -C "$SDK_DIR" diff --exit-code -- include/rex/system/xmemory.h src/system/xmemory.cpp src/system/xthread.cpp >/dev/null && {
-  echo "Expected VeronicaX patch changes were not found." >&2
-  exit 1
-} || true
+
+changed_files="$(git -C "$SDK_DIR" diff --name-only)"
+for expected in include/rex/system/xmemory.h src/system/xmemory.cpp src/system/xthread.cpp; do
+  if ! grep -Fxq "$expected" <<<"$changed_files"; then
+    echo "Expected VeronicaX patch change missing: $expected" >&2
+    exit 1
+  fi
+done
 
 echo "PASS: VeronicaX game patch applies cleanly to ReXGlue bd833a2."
 echo "NOTE: This validates only the existing game patch, not Android/Bionic support."
