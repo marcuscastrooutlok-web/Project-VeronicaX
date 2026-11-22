@@ -96,6 +96,41 @@ jobs:
               raise SystemExit("Could not uniquely locate entry CodegenContext insertion point")
           p.write_text(s.replace(needle, diagnostic + "\n" + needle))
           print("Inserted temporary loaded-XEX branch-target diagnostics.")
+          
+          # Add graph ownership diagnostics after Merge and before Validate.
+          p = Path("thirdparty/rexglue-sdk/src/codegen/analyze.cpp")
+          s = p.read_text()
+          needle = '  // 6. Validate\n'
+          graph_diag = r"""  // Temporary VeronicaX graph ownership diagnostics.
+          {
+            constexpr uint32_t targets[] = {
+                0x829E2470, 0x823D1438, 0x829E2458, 0x82221830,
+                0x82B85AE8, 0x828A7E40, 0x829E2244};
+            for (const auto& [base, fn] : ctx.graph.functions()) {
+              for (const auto& jump : fn->unresolvedJumps()) {
+                bool selected = false;
+                for (uint32_t target : targets) selected |= jump.target == target;
+                if (!selected) continue;
+                auto* owner = ctx.graph.getFunctionContaining(jump.target);
+                REXCODEGEN_WARN("VX_GRAPH unresolved source_fn=0x{:08X} site=0x{:08X} target=0x{:08X} source_authority={} target_owner={} target_owner_base=0x{:08X} target_is_entry={}",
+                                base, jump.site, jump.target, AuthorityName(fn->authority()),
+                                owner ? AuthorityName(owner->authority()) : "none",
+                                owner ? owner->base() : 0,
+                                ctx.graph.isEntryPoint(jump.target));
+                for (const auto& block : fn->blocks())
+                  REXCODEGEN_WARN("VX_GRAPH source_block fn=0x{:08X} base=0x{:08X} size=0x{:X}", base, block.base, block.size);
+                if (owner)
+                  for (const auto& block : owner->blocks())
+                    REXCODEGEN_WARN("VX_GRAPH target_block fn=0x{:08X} base=0x{:08X} size=0x{:X}", owner->base(), block.base, block.size);
+              }
+            }
+          }
+
+          """
+          if s.count(needle) != 1:
+              raise SystemExit("Could not uniquely locate Analyze Validate phase")
+          p.write_text(s.replace(needle, graph_diag + needle))
+          print("Inserted temporary function-graph ownership diagnostics.")
           PY
 
       - name: Build pinned ReXGlue host codegen
