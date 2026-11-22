@@ -89,3 +89,25 @@ Do not start the Android APK workflow until a repository-owned Android patch ser
 - [x] Existing VeronicaX game patch applies cleanly to the pinned ReXGlue `bd833a2` revision.
 - [ ] Derive and validate the separate Android/Bionic patch while preserving the VeronicaX changes.
 - [ ] Configure and build the patched Android SDK before adding the app/APK pipeline.
+
+
+## Android reference patch compatibility probe (2026-11-22)
+
+A CI probe now tests the pinned Android reference patch from `deivid22srk/hells-gate-recomp-android` commit `0a79f938ab839c187d25bd7bf48e51e30a6150be` against ReXGlue `bd833a2`, **after** applying the mandatory VeronicaX patch.
+
+- Probe workflow: [run #45034987859](https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45034987859).
+- The VeronicaX patch step passed before the Android compatibility probe.
+- Most Android patch hunks passed the apply check, including the Android runtime/platform files and the overlapping `src/system/xmemory.cpp` hunks. The latter is important: the reference memory-offset changes can coexist at the patch-context level with the VeronicaX GPU invalidation patch.
+- Three source files have incompatible context and require selective rebase against `bd833a2`:
+  - top-level `CMakeLists.txt` (patch context around compiler options/platform detection);
+  - `src/codegen/builders/system.cpp` (system barrier builder context);
+  - `src/core/logging.cpp` (global logging state/context).
+- The reference patch must not be force-applied. Rebase these three files manually, retain only required Android behavior, then create a repository-owned Android patch pinned to `bd833a2`.
+- The reference patch is fetched at a fixed upstream commit by `scripts/probe-android-patch-compat.sh`; this script is diagnostic only and does not modify the SDK checkout or produce a distributable patch.
+
+### Updated next gate
+
+1. Rebase the three conflicting files against the pinned SDK, while preserving all compatible Android hunks.
+2. Generate a clean repository-owned Android patch.
+3. In CI, apply VeronicaX patch first and the derived Android patch second; run `git diff --check` and verify all expected Android files.
+4. Only then configure and compile the Android SDK.
