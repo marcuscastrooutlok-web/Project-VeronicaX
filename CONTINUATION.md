@@ -230,3 +230,41 @@ Contém os overrides manuais:
 - Sempre informar repositório, branch e caminho do arquivo quando houver atualização.
 - Preservar os commits e correções existentes; não recomeçar do zero.
 - Registrar no arquivo de continuidade cada nova evidência, alteração, commit e workflow relevante.
+
+
+## Inspeção do código interno do ReXGlue (SDK bd833a2) — 2026-11-22
+
+Arquivos inspecionados diretamente no repositório upstream `rexglue/rexglue-sdk`, ref `bd833a2`:
+- `src/codegen/phase_gapfill.cpp`
+- `src/codegen/function_scanner.cpp`
+- `src/codegen/phase_discover.cpp`
+- `src/codegen/phase_register.cpp`
+- `src/codegen/phase_scan.cpp`
+- `src/codegen/function_graph.cpp`
+- `src/codegen/phase_merge.cpp`
+- `src/codegen/analyze.cpp`
+
+### Regras confirmadas no código
+
+1. Pipeline: Register → Scan → Discover → GapFill → Merge → Validate.
+2. `FunctionGraph::addUnresolvedJumpToFunction` resolve imediatamente apenas quando o destino já é uma entrada registrada (`getFunction(target)`) ou import. Caso contrário, grava o salto como unresolved.
+3. `FunctionGraph::tryResolveFunction` tenta, nesta ordem: (a) destino como label interno dentro dos blocos da própria função (`tryResolveAsInternalLabel`); (b) destino igual à base de outra função registrada; (c) destino como import. Não há regra geral que converta endereço próximo ou pertencente a outra função em chamada externa.
+4. `FunctionNode::tryResolveAgainst` também exige igualdade exata entre destino e base da função recém-adicionada.
+5. `phase_gapfill.cpp::splitRegionOnTerminators` separa regiões em `blr` e em branch `b` somente quando o destino já pertence a `knownCallables`. Depois, GapFill ignora segmentos cujo início já é entrada ou está dentro de uma função existente.
+6. `discover_blocks` para ao encontrar outra entrada conhecida; branches incondicionais podem ser tratados como internos ou tail calls conforme entradas conhecidas, região, distância e padrão de prólogo.
+7. `FunctionNode::containsAddress` verifica blocos descobertos; para CONFIG/PDATA também confia no tamanho declarado. Portanto, limites manuais excessivos podem classificar código alheio como interno e gerar regressões.
+
+### Consequência para os 11 unresolved do run #12
+
+A ausência de uma entrada exata registrada ou de um bloco interno cobrindo o destino é suficiente para manter o salto pendente. Isso confirma o mecanismo do erro, mas **não prova** que todos os sete endereços sejam funções independentes. Em particular:
+- 0x829E2458 e 0x829E2470 podem ser duas entradas ou blocos de uma mesma função; não duplicar limites sem confirmar.
+- 0x829E2244 fica logo após a faixa curta 0x829E2230–0x829E2240; proximidade não prova fronteira.
+- 0x82221830 é alvo de branch a partir de 0x82221824 e pode ser entrada alternativa.
+- 0x823D1438 tem loop anterior e precisa de análise de fluxo antes de ser separado.
+- 0x82B85AE8 e 0x828A7E40 ainda precisam ser comparados com o fluxo completo das funções de origem e os blocos descobertos.
+
+### Estado após esta inspeção
+
+- Nenhuma alteração em `config/functions.toml` ou `config/gaps.toml`.
+- Nenhum novo workflow foi disparado; nenhuma correção foi presumida.
+- Próximo passo: obter no log/diagnóstico do codegen os limites efetivos dos blocos descobertos para cada função de origem e confrontar os sete destinos com esses blocos e com as entradas já registradas. Só então decidir se cada endereço exige override, expansão de bloco ou correção do manifesto/analyzer.
