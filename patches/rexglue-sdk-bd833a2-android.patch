@@ -2,7 +2,7 @@ diff --git a/CMakeLists.txt b/CMakeLists.txt
 index c9dfc17..0000000 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -25,6 +25,8 @@ option(REXGLUE_ENABLE_FIDELITYFX "Enable optional AMD FidelityFX integration (ex
+@@ -25,5 +25,7 @@ option(REXGLUE_ENABLE_FIDELITYFX "Enable optional AMD FidelityFX integration (ex
  option(REXGLUE_ENABLE_TRACY                "Enable Tracy profiler integration" ON)
  option(REXGLUE_ENABLE_PERF_COUNTERS        "Enable lightweight perf counter registry and overlay" ON)
 +option(REXGLUE_ENABLE_DESKTOP_SDL_BACKENDS
@@ -10,7 +10,7 @@ index c9dfc17..0000000 100644
  # Propagate profiling defines globally (compiled out in Release)
  if(REXGLUE_ENABLE_TRACY)
      add_compile_definitions($<$<NOT:$<CONFIG:Release>>:REXGLUE_ENABLE_PROFILING>)
-@@ -154,6 +156,15 @@ if(WIN32)
+@@ -154,3 +156,11 @@ if(WIN32)
      endif()
      add_compile_definitions(REX_PLATFORM_WINDOWS=1)
 +elseif(ANDROID)
@@ -22,7 +22,7 @@ index c9dfc17..0000000 100644
 +    set(REX_PLATFORM "android-arm64")
 +    add_compile_definitions(REX_PLATFORM_ANDROID=1 REX_PLATFORM_LINUX=1)
  elseif(UNIX AND NOT APPLE)
-@@ -174,7 +185,7 @@ elseif(APPLE)
+@@ -174,5 +185,5 @@ elseif(APPLE)
      endif()
      add_compile_definitions(REX_PLATFORM_MAC=1)
  else()
@@ -33,7 +33,7 @@ diff --git a/src/codegen/builders/system.cpp b/src/codegen/builders/system.cpp
 index f560429..0000000 100644
 --- a/src/codegen/builders/system.cpp
 +++ b/src/codegen/builders/system.cpp
-@@ -31,20 +31,16 @@ bool build_attn(BuilderContext& ctx) {
+@@ -31,31 +31,16 @@ bool build_attn(BuilderContext& ctx) {
  }
  
  bool build_sync(BuilderContext& ctx) {
@@ -82,7 +82,7 @@ index 9ac8d8a..0000000 100644
  #else
  #include <spdlog/sinks/stdout_sinks.h>
  #endif
-@@ -73,6 +76,44 @@ std::mutex g_mutex;
+@@ -73,3 +76,40 @@ std::mutex g_mutex;
  LogConfig g_config;
  
 +#if REX_PLATFORM_ANDROID
@@ -123,7 +123,7 @@ index 9ac8d8a..0000000 100644
 +#endif  // REX_PLATFORM_ANDROID
 +
  std::optional<int> RunNumber(const std::filesystem::path& file, std::string_view prefix) {
-@@ -195,6 +236,8 @@ void InitLoggingEarly() {
+@@ -195,5 +236,7 @@ void InitLoggingEarly() {
  #if REX_PLATFORM_WIN32
    auto sink = std::make_shared<spdlog::sinks::msvc_sink_mt>();
 +#elif REX_PLATFORM_ANDROID
@@ -131,7 +131,7 @@ index 9ac8d8a..0000000 100644
  #else
    auto sink = std::make_shared<spdlog::sinks::stdout_sink_mt>();
  #endif
-@@ -243,10 +286,13 @@ void InitLogging(const LogConfig& config) {
+@@ -243,8 +286,8 @@ void InitLogging(const LogConfig& config) {
    //   Windows: the early msvc_sink is the persistent debug channel for GUI
    //     apps and does not conflict with the stdout console sink, so keep it.
 -  //   Non-Windows: drop the early stdout sink unconditionally so file-only
