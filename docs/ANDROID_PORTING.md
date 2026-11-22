@@ -128,3 +128,16 @@ A repository-owned Android patch was derived from the reference Android implemen
 - All other Android patch hunks checked cleanly, including the overlapping `src/system/xmemory.cpp` hunks after the VeronicaX patch.
 
 **Important scope:** this is a clean patch-application result, not yet a successful Android SDK compile. The next gate is to run the Android NDK/CMake configure and compile against the pinned SDK and its submodules. No APK has been built.
+
+
+### Patch-application gate strengthened
+
+The probe now applies the rebased Android patch after the VeronicaX patch (not just `--check`), runs `git diff --check`, and verifies the Android runtime headers/sources. The strengthened check passed in [run #45036122669](https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45036122669).
+
+### Android SDK compile gate started
+
+- Added `scripts/check-android-sdk-build.sh` to clone the exact SDK pin, initialize its submodules, apply both patches in order, configure the NDK toolchain for `arm64-v8a`, and compile the SDK with Vulkan.
+- Added workflow `.github/workflows/android-sdk-build-check.yml`.
+- First workflow attempt (#45036261967) stopped during Android SDK setup because the setup action requested the obsolete SDK package `tools`, which is no longer available in the repository.
+- The workflow was changed to use the runner's preinstalled Android SDK Manager directly and install NDK 27.2.12479018 plus CMake 3.31.1. Retry: [run #45036352816](https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45036352816).
+- The retry is not yet confirmed as a compile pass. Do not mark the SDK build gate complete until its CMake configure and native compilation steps finish successfully.
