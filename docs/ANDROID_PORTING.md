@@ -53,3 +53,24 @@ The Android reference port's SDK patches were inspected, not copied blindly.
 ### Decision
 
 Do not import the reference Android or performance patches as-is. The next SDK task is to derive a VeronicaX-specific Android patch from the platform-only changes, retain the existing VeronicaX memory/thread fixes, then validate both patches against a clean `bd833a2` checkout with `git apply --check` before any Android build is attempted.
+
+
+## Android patch source-file inventory (2026-11-22)
+
+The reference Android patch was enumerated by changed path. This is an inventory for selective porting, not an endorsement to copy the patch wholesale.
+
+- Build/platform selection: `CMakeLists.txt`, `src/core/CMakeLists.txt`, `src/ui/CMakeLists.txt`, `thirdparty/CMakeLists.txt`.
+- Android-only additions: `include/rex/main_android.h`, `include/rex/ui/surface_android.h`, `src/core/android_runtime.cpp`, `src/core/ucontext_android.cpp`, `src/ui/surface_android.cpp`.
+- POSIX/Bionic compatibility: `include/rex/chrono/chrono.h`, `include/rex/string/numeric.h`, `include/rex/thread/jthread_compat.h`, `src/core/fiber_posix.cpp`, `src/core/filesystem_posix.cpp`, `src/core/logging.cpp`, `src/core/memory_posix.cpp`, `src/core/threading_posix.cpp`, `src/core/timer_queue.cpp`.
+- Runtime and code-generation integration: `resources/templates/codegen/pch_h.inja`, `src/codegen/builders/system.cpp`, `src/ui/window_sdl.cpp`, `src/system/xmemory.cpp`.
+
+### Required treatment for VeronicaX
+
+- Preserve `patches/rexglue-sdk-bd833a2-veronicax.patch` as a separate, mandatory game patch. Its changes to `src/system/xmemory.cpp` overlap the Android patch's changes to that same file; a merged result must retain both the Android physical-memory offset handling and VeronicaX's GPU-data invalidation logic.
+- The Android runtime, ucontext, surface, and Bionic compatibility files are candidates for porting, but their APIs and build conditions must be checked against the pinned `bd833a2` checkout.
+- The codegen template and builder edits must be reviewed for hard-coded reference-game hooks. No Dante's Inferno header, manifest, XEX, or generated code belongs in this repository.
+- The CMake and SDL window changes need a rebase against the actual `bd833a2` files; identical hashes in selected POSIX/core files do not establish whole-patch compatibility.
+
+### Validation gate
+
+Do not start the Android APK workflow until a repository-owned Android patch series exists and a clean CI job has demonstrated, in order: (1) checkout of SDK commit `bd833a2`; (2) successful application of the VeronicaX patch; (3) successful application of the derived Android patch; and (4) a clean configure/build of the Android SDK. A failed hunk is a stop condition, not a reason to skip or force-apply the game patch.
