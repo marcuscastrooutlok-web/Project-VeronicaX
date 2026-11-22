@@ -1,4 +1,5 @@
 name: Android SDK patch baseline
+# Re-run after fixing the exact pinned-revision comparison.
 
 on:
   workflow_dispatch:
