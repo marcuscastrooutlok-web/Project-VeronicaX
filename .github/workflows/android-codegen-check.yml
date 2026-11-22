@@ -7,6 +7,8 @@ on:
       - android-arm64
     paths:
       - '.github/workflows/android-codegen-check.yml'
+      - 'config/functions.toml'
+      - 'config/gaps.toml'
 
 permissions:
   contents: read
