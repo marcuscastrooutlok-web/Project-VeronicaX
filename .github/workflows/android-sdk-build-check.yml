@@ -30,7 +30,9 @@ jobs:
         run: |
           SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
           test -x "$SDKMANAGER"
+          set +o pipefail
           yes | "$SDKMANAGER" --licenses
+          set -o pipefail
           "$SDKMANAGER" --install "ndk;27.2.12479018" "cmake;3.31.1"
       - name: Add Android CMake to PATH
         run: echo "$ANDROID_HOME/cmake/3.31.1/bin" >> "$GITHUB_PATH"
