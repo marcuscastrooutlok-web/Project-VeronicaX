@@ -24,6 +24,12 @@ curl --fail --location --silent --show-error "$ANDROID_PATCH_URL" --output "$AND
 echo "Checking rebased Android patch against the already-patched bd833a2 SDK..."
 if git -C "$SDK_DIR" apply --check --verbose "$ANDROID_PATCH"; then
   echo "PASS: repository-owned Android patch applies after the VeronicaX patch."
+  git -C "$SDK_DIR" apply "$ANDROID_PATCH"
+  git -C "$SDK_DIR" diff --check
+  for expected in include/rex/main_android.h src/core/android_runtime.cpp src/core/ucontext_android.cpp src/ui/surface_android.cpp; do
+    test -s "$SDK_DIR/$expected" || { echo "Missing expected Android file: $expected" >&2; exit 1; }
+  done
+  echo "PASS: Android patch applied; diff check and required Android source checks passed."
 else
   echo "::warning::Repository-owned Android patch still has conflicts against bd833a2 after the VeronicaX patch."
   echo "The diagnostics above identify files/hunks requiring a selective rebase."
