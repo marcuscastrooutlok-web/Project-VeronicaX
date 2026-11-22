@@ -12,17 +12,17 @@ fi
 git clone --no-checkout https://github.com/rexglue/rexglue-sdk.git "$SDK_DIR"
 git -C "$SDK_DIR" checkout --detach bd833a2
 
-echo "Checking the pinned VeronicaX SDK patch against ReXGlue bd833a2..."
-if ! git -C "$SDK_DIR" apply --check --verbose "$ROOT/patches/rexglue-sdk-bd833a2-veronicax.patch"; then
-  echo "::error::The VeronicaX patch does not apply cleanly to the pinned ReXGlue revision."
-  echo "Patch diagnostics (retrying in verbose mode):"
-  git -C "$SDK_DIR" apply --check --verbose "$ROOT/patches/rexglue-sdk-bd833a2-veronicax.patch" || true
+PINNED_SHA="$(git -C "$SDK_DIR" rev-parse 'bd833a2^{commit}')"
+CHECKED_OUT_SHA="$(git -C "$SDK_DIR" rev-parse HEAD)"
+if [[ "$CHECKED_OUT_SHA" != "$PINNED_SHA" ]]; then
+  echo "Unexpected SDK revision: $CHECKED_OUT_SHA (expected $PINNED_SHA)" >&2
   exit 1
 fi
 
+echo "Checking the pinned VeronicaX SDK patch against ReXGlue $PINNED_SHA..."
+git -C "$SDK_DIR" apply --check --verbose "$ROOT/patches/rexglue-sdk-bd833a2-veronicax.patch"
 git -C "$SDK_DIR" apply "$ROOT/patches/rexglue-sdk-bd833a2-veronicax.patch"
 
-test "$(git -C "$SDK_DIR" rev-parse --short HEAD)" = "bd833a2"
 git -C "$SDK_DIR" diff --check
 
 changed_files="$(git -C "$SDK_DIR" diff --name-only)"
@@ -33,5 +33,5 @@ for expected in include/rex/system/xmemory.h src/system/xmemory.cpp src/system/x
   fi
 done
 
-echo "PASS: VeronicaX game patch applies cleanly to ReXGlue bd833a2."
+echo "PASS: VeronicaX game patch applies cleanly to ReXGlue $PINNED_SHA."
 echo "NOTE: This validates only the existing game patch, not Android/Bionic support."
