@@ -147,6 +147,26 @@ The probe now applies the rebased Android patch after the VeronicaX patch (not j
 - Android SDK build [run #45036455268](https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45036455268) completed successfully on 2026-11-22. All workflow steps passed, including Android NDK/CMake installation, CMake configuration, and native compilation of ReXGlue for `arm64-v8a` with Vulkan.
 - The successful run used repository commit `e079ef230a17484727bf4f5048e9c7d80a84ff9d` and SDK pin `bd833a2`, applying the VeronicaX patch first and the Android patch second.
 - [x] Configure and compile the patched ReXGlue SDK for Android `arm64-v8a`.
-- [ ] Add the Android app/Gradle project, Android entry point, SAF file selection, and native game integration.
-- [ ] Run host-side code generation using the user's own game files through a private CI input; do not commit XEX or extracted game assets.
-- [ ] Build and inspect an APK, then test it on the Motorola Edge 30 Pro. SDK compilation is not an APK and does not yet establish that the game boots.
+- [x] Add the initial Android Gradle application structure, Android manifest, SDLActivity bridge, SAF folder-selection screen, native entry point, and ARM64/Vulkan CMake target.
+- [x] Add `scripts/setup-android.sh` to reproduce the exact SDK checkout (`bd833a2)), initialize its submodules, apply the VeronicaX patch followed by the Android patch, and stage SDL3 Java glue.
+- [x] Add `scripts/build-android.sh` with explicit generated-code precondition and APK checks for `libmain.so` plus the Xenos Vulkan plugin.
+- [ ] Validate the Android app CMake/Gradle integration with real generated code. The current project still has no Android APK build result.
+- [ ] Add a private CI input for the user's own `game/extracted/Default.xex`, run host-side ReXGlue code generation, and build the APK without publishing game files.
+- [ ] Inspect the APK and test startup, rendering, audio, and controller input on the Motorola Edge 30 Pro.
+
+
+## Android application scaffold (2026-11-22)
+
+The first Android application layer is now present on `android-arm64`:
+
+- Gradle project: `android/settings.gradle.kts`, `android/build.gradle.kts`, `android/gradle.properties`, and `android/app/build.gradle.kts`.
+- Manifest: `android/app/src/main/AndroidManifest.xml`; package/application ID `org.veronicax.android`; ARM64 only, Vulkan feature requirement, Android API 28 minimum.
+- Setup screen: `android/app/src/main/java/org/veronicax/android/SetupActivity.java`. It requests Android's all-files access where needed, opens the Storage Access Framework folder picker, resolves primary shared-storage paths, validates `Default.xex`, and writes `game_root.txt` in the app's external files directory.
+- SDL activity bridge: `android/app/src/main/java/org/veronicax/android/MainActivity.java`; loads the statically linked SDL3 application library `main` and exposes the `openContentFd` JNI bridge required by the SDK.
+- Native entry point: `android/app/src/main/cpp/android_main.cpp`; initializes Android runtime glue, resolves the app-private external files directory and game root, and launches the registered `veronicax` application.
+- Android native CMake: `android/app/src/main/cpp/CMakeLists.txt`; compiles the generated guest code, VeronicaX application sources, ReXGlue runtime and Xenos GPU plugin for `arm64-v8a` with Vulkan.
+- Reproducible SDK setup: `scripts/setup-android.sh`; APK packaging gate: `scripts/build-android.sh`.
+
+The folder picker currently resolves the primary shared-storage volume path. It does not copy the user's game files into the repository or APK. The SDK setup script downloads the pinned SDK and SDL3 Java glue during CI/local setup; those generated third-party files are not committed.
+
+**Remaining gate:** the app scaffold has not yet been compiled as an Android app. Host-side code generation still requires the user's own `Default.xex` at `game/extracted/Default.xex`. No APK is claimed at this stage.
