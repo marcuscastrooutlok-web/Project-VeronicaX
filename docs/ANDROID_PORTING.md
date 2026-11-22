@@ -144,4 +144,9 @@ The probe now applies the rebased Android patch after the VeronicaX patch (not j
 
 
 - The direct-SDK-manager retry #45036352816 also stopped before CMake: the workflow's `yes | sdkmanager --licenses` pipeline inherited Bash `pipefail` and returned failure when the license process closed its input. The workflow now disables `pipefail` only around license acceptance, then restores it before package installation.
-- Current retry: [run #45036455268](https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45036455268). At the time of this update it is still running its build-tools setup; NDK installation and the actual SDK compile have not yet been confirmed.
+- Android SDK build [run #45036455268](https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45036455268) completed successfully on 2026-11-22. All workflow steps passed, including Android NDK/CMake installation, CMake configuration, and native compilation of ReXGlue for `arm64-v8a` with Vulkan.
+- The successful run used repository commit `e079ef230a17484727bf4f5048e9c7d80a84ff9d` and SDK pin `bd833a2`, applying the VeronicaX patch first and the Android patch second.
+- [x] Configure and compile the patched ReXGlue SDK for Android `arm64-v8a`.
+- [ ] Add the Android app/Gradle project, Android entry point, SAF file selection, and native game integration.
+- [ ] Run host-side code generation using the user's own game files through a private CI input; do not commit XEX or extracted game assets.
+- [ ] Build and inspect an APK, then test it on the Motorola Edge 30 Pro. SDK compilation is not an APK and does not yet establish that the game boots.
