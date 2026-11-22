@@ -63,10 +63,13 @@ jobs:
         working-directory: thirdparty/rexglue-sdk
         run: |
           set -euo pipefail
-          # Force Clang to use GCC 14 headers (std::expected requires C++23 support).
+          # Clang 18 advertises an older concepts feature level than libstdc++ 14 expects.
+          # Verify and enable the C++23 library feature gate for std::expected.
+          printf '#include <expected>\nint main() { std::expected<int, int> value = 1; return value.value() - 1; }\n' | \
+            clang++ --gcc-toolchain=/usr -stdlib=libstdc++ -std=c++23 -D__cpp_concepts=202002L -x c++ -fsyntax-only -
           clang++ --gcc-toolchain=/usr -v -E -x c++ /dev/null -o /dev/null
           cmake --preset linux-amd64 \
-            -DCMAKE_CXX_FLAGS="--gcc-toolchain=/usr -march=x86-64-v2 -stdlib=libstdc++" \
+            -DCMAKE_CXX_FLAGS="--gcc-toolchain=/usr -march=x86-64-v2 -stdlib=libstdc++ -D__cpp_concepts=202002L" \
             -DCMAKE_EXE_LINKER_FLAGS="--gcc-toolchain=/usr -stdlib=libstdc++" \
             -DCMAKE_SHARED_LINKER_FLAGS="--gcc-toolchain=/usr -stdlib=libstdc++"
           cmake --build --preset linux-amd64-release --target rexglue --parallel 2
