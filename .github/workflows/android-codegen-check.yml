@@ -2,6 +2,11 @@ name: Android host Codegen check
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - android-arm64
+    paths:
+      - '.github/workflows/android-codegen-check.yml'
 
 permissions:
   contents: read
@@ -78,7 +83,7 @@ jobs:
           test -s generated/default/veronicax_pch.h
           grep -q 'set(GENERATED_SOURCES' generated/default/sources.cmake
           echo "Codegen output verified."
-          find generated/default -maxdepth 1 -type f -printf '%f %s bytes\n' | sort
+          find generated/default -maxdepth 1 -type f -printf '%f %s bytes\\n' | sort
 
       - name: Remove private game input
         if: always()
