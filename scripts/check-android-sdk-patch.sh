@@ -13,7 +13,13 @@ git clone --no-checkout https://github.com/rexglue/rexglue-sdk.git "$SDK_DIR"
 git -C "$SDK_DIR" checkout --detach bd833a2
 
 echo "Checking the pinned VeronicaX SDK patch against ReXGlue bd833a2..."
-git -C "$SDK_DIR" apply --check "$ROOT/patches/rexglue-sdk-bd833a2-veronicax.patch"
+if ! git -C "$SDK_DIR" apply --check --verbose "$ROOT/patches/rexglue-sdk-bd833a2-veronicax.patch"; then
+  echo "::error::The VeronicaX patch does not apply cleanly to the pinned ReXGlue revision."
+  echo "Patch diagnostics (retrying in verbose mode):"
+  git -C "$SDK_DIR" apply --check --verbose "$ROOT/patches/rexglue-sdk-bd833a2-veronicax.patch" || true
+  exit 1
+fi
+
 git -C "$SDK_DIR" apply "$ROOT/patches/rexglue-sdk-bd833a2-veronicax.patch"
 
 test "$(git -C "$SDK_DIR" rev-parse --short HEAD)" = "bd833a2"
