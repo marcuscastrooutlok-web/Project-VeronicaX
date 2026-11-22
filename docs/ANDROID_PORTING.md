@@ -74,3 +74,18 @@ The reference Android patch was enumerated by changed path. This is an inventory
 ### Validation gate
 
 Do not start the Android APK workflow until a repository-owned Android patch series exists and a clean CI job has demonstrated, in order: (1) checkout of SDK commit `bd833a2`; (2) successful application of the VeronicaX patch; (3) successful application of the derived Android patch; and (4) a clean configure/build of the Android SDK. A failed hunk is a stop condition, not a reason to skip or force-apply the game patch.
+
+
+## VeronicaX SDK patch baseline validation (2026-11-22)
+
+- GitHub Actions run [#4](https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45034789630) completed successfully on branch `android-arm64`.
+- The job checked out ReXGlue ref `bd833a2`, verified the exact resolved commit SHA, ran `git apply --check` and applied `patches/rexglue-sdk-bd833a2-veronicax.patch`.
+- `git diff --check` passed, and the validation confirmed that all three expected game-specific files changed: `include/rex/system/xmemory.h`, `src/system/xmemory.cpp`, and `src/system/xthread.cpp`.
+- The earlier failures were caused by the check script comparing the 8-character abbreviated revision returned by Git against the 7-character string `bd833a2`; the patch itself was applying. The script now compares the full resolved commit SHA to the checked-out HEAD.
+- This is only a successful baseline/game-patch validation. It does **not** validate Android/Bionic changes, configure or compile the SDK, or produce an APK.
+
+### Current verified gate
+
+- [x] Existing VeronicaX game patch applies cleanly to the pinned ReXGlue `bd833a2` revision.
+- [ ] Derive and validate the separate Android/Bionic patch while preserving the VeronicaX changes.
+- [ ] Configure and build the patched Android SDK before adding the app/APK pipeline.
