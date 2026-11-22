@@ -1,0 +1,25 @@
+name: Android SDK patch baseline
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - android-arm64
+    paths:
+      - "patches/rexglue-sdk-bd833a2-veronicax.patch"
+      - "scripts/check-android-sdk-patch.sh"
+      - ".github/workflows/android-sdk-patch-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify-veronicax-sdk-patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out Project-VeronicaX
+        uses: actions/checkout@v4
+      - name: Install Git
+        run: sudo apt-get update && sudo apt-get install -y git
+      - name: Verify pinned SDK patch
+        run: bash scripts/check-android-sdk-patch.sh
