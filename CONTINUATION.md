@@ -280,3 +280,25 @@ Foi baixado e conferido o log completo do job `codegen` (job `137364675907`) do 
 - A lista de 11 branches coincide com a já registrada acima; não surgiu um novo erro de build do SDK nem de leitura do XEX.
 
 **Decisão para evitar retrabalho:** não repetir build do SDK nem coleta ampla de instruções. A próxima ação deve focar apenas nos quatro grupos de origem que aparecem no log: `0x829E21xx` (inclui quatro saltos para `0x829E2470`, um para `0x829E2458` e um para `0x829E2244`), `0x82221824`, `0x82B85AA4`, `0x828A7D18` e `0x82541CB0/0x82541CC0`. Determinar a cobertura de blocos dessas funções e fazer uma única correção mínima baseada nisso. Não reexecutar workflow até haver alteração concreta.
+
+
+## Diagnóstico de propriedade do grafo — run #13 (2026-11-22)
+
+- Instrumentação temporária adicionada ao workflow para imprimir função de origem, blocos conhecidos e proprietário do destino para os sete endereços pendentes.
+- Commit: `9665d0ad7870ae8da31ca74db2ce7ce577a15fb3`.
+- Run #13: [45086169944](https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45086169944), job `137405199206`; SDK/codegen compilou e executou até Validate, que falhou novamente com 11 unresolved calls.
+- Para todos os sete destinos, `target_owner=none` e `target_is_entry=false`: nenhum estava registrado como entrada nem coberto por função conhecida.
+- Origens/blocos registrados:
+  - `0x829E2470`: origens `0x829E21D0`, `0x829E1D60`, `0x829E1D38`, `0x829E21B0`, `0x829E2230`, `0x829E2220`; blocos CONFIG de 8–40 bytes.
+  - `0x829E2458`: origem `0x829E21E0`, bloco CONFIG de 16 bytes.
+  - `0x829E2244`: origem `0x829E2178`, bloco CONFIG de 8 bytes.
+  - `0x82221830`: origem `0x82221818`, bloco CONFIG de 16 bytes.
+  - `0x82B85AE8`: origens `0x82B85AB0`, `0x82B85AA0`, `0x82B85A98`; blocos CONFIG de 8 bytes.
+  - `0x828A7E40`: origem `0x828A7D18`, bloco CONFIG de 4 bytes.
+  - `0x823D1438`: origem `0x82541C88`, autoridade `gap_fill`, blocos de 0x2C e 0x10 bytes.
+- O log imprime cada registro duas vezes durante a validação; a contagem final continua sendo 11 unresolved calls, não 22.
+- Instruções carregadas confirmadas nos alvos: 0x829E2458=`7C7F1B78`, 0x829E2470=`817D0038`, 0x823D1438=`816300F8`, 0x82221830=`C0210070`, 0x82B85AE8=`93BE0000`, 0x828A7E40=`815F00E8`, 0x829E2244=`389D0010`.
+- **Conclusão:** os destinos não pertencem a nenhum bloco/função conhecido após Merge. Isso ainda não prova que cada destino seja início de função independente. Não foram alterados `config/functions.toml` nem `config/gaps.toml`.
+- Próxima ação delimitada: analisar limites e fluxo das regiões-alvo (especialmente 0x829E2458–0x2470, 0x829E2240–0x2264 e o loop anterior a 0x823D1438), e só então escolher a menor correção. A instrumentação é temporária no workflow; não altera permanentemente o SDK upstream.
+
+Local desta continuidade: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo raiz `CONTINUATION.md`.
