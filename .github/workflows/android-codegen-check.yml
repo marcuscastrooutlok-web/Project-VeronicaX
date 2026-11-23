@@ -7,8 +7,13 @@ on:
       - android-arm64
     paths:
       - '.github/workflows/android-codegen-check.yml'
-      - 'config/functions.toml'
-      - 'config/gaps.toml'
+      - 'veronicax_manifest.toml'
+      - 'config/**'
+      - 'scripts/codegen.sh'
+      - 'scripts/find_gaps.py'
+      - 'scripts/refine_gaps.py'
+      - 'scripts/scan_gaps.sh'
+      - 'notes/functions.md'
 
 permissions:
   contents: read
