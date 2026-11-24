@@ -302,3 +302,15 @@ Foi baixado e conferido o log completo do job `codegen` (job `137364675907`) do 
 - Próxima ação delimitada: analisar limites e fluxo das regiões-alvo (especialmente 0x829E2458–0x2470, 0x829E2240–0x2264 e o loop anterior a 0x823D1438), e só então escolher a menor correção. A instrumentação é temporária no workflow; não altera permanentemente o SDK upstream.
 
 Local desta continuidade: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo raiz `CONTINUATION.md`.
+
+
+## Correção de um branch alvo confirmado — 2026-11-24
+
+- Run #14: [45096009888](https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45096009888), job `137435849213`, confirmou novamente os 11 unresolved e forneceu dump de instruções carregadas do XEX em torno dos sete destinos.
+- O alvo `0x823D1438` foi analisado diretamente: sequência leaf de 10 instruções entre `0x823D1438` e `0x823D145C`, terminando em `blr` em `0x823D145C`; o próximo código em `0x823D1460` inicia outra rotina. Dois branches de `0x82541C88` entram exatamente em `0x823D1438`.
+- Correção aplicada em `config/functions.toml`: `0x823D1438` com fim exclusivo `0x823D1460`. Documentação registrada em `notes/functions.md`.
+- Commits: config `84f54c8b7f6b8b330fec0867b99614a28c6023f0`; notas `33a6fdec90ca4eacbce12d044f880140e334d037`.
+- Os outros seis destinos não foram alterados: ainda exigem identificar os limites corretos, sem inventar entradas de função.
+- A alteração dispara o workflow de codegen pela regra de paths. Verificar o próximo run antes de qualquer correção adicional.
+
+Local desta continuidade: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo raiz `CONTINUATION.md`.
