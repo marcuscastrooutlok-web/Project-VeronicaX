@@ -24,6 +24,9 @@ end = 0x827F30C8    # gap after sub_827F3070; first hit during boot
 
 # Additional branch targets confirmed from loaded-XEX diagnostics.
 
+[functions."0x823D1438"]
+end = 0x823D1460    # 10-instruction leaf routine; ends with blr at 0x823D145C
+
 [functions."0x827E9A60"]
 end = 0x827E9A68    # li r3,0; blr -- shared return-zero function (206 callers)
 
