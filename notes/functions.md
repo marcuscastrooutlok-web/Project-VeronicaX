@@ -82,6 +82,8 @@ function's code.
 
 ## Additional boundaries confirmed by loaded-XEX diagnostics
 
+| 0x823D1438 | 0x823D1460 | – | Two tail branches from 0x82541C88 enter this 10-instruction leaf routine; loaded code ends with `blr` at 0x823D145C |
+
 | Address | End | Name | Evidence |
 |---|---|---|---|
 | 0x827E9A60 | 0x827E9A68 | ReturnZero | 206 unresolved branches target this exact address; loaded instructions are `li r3,0; blr` |
