@@ -10,7 +10,7 @@ index f3da777..0000000 100644
  #include <unordered_set>
  
  #include <rex/codegen/phases.h>
-@@ -119,6 +120,75 @@ void gapFillCodeRegions(CodegenContext& ctx) {
+@@ -119,7 +120,85 @@ void gapFillCodeRegions(CodegenContext& ctx) {
    for (const auto& [addr, node] : graph.functions()) {
      knownCallables.insert(addr);
    }
