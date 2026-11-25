@@ -411,3 +411,39 @@ Observações de fluxo/instruções já verificadas:
 - Não solicitar XEX nem PAT; não expor o secret.
 
 Local desta continuidade: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo raiz `CONTINUATION.md`.
+
+
+## Confirmação direta do scanner e da cobertura de funções — 2026-11-25
+
+Inspeção direta nos arquivos do SDK upstream rexglue/rexglue-sdk, ref bd833a2. Nenhuma alteração no SDK ou no código do projeto foi feita nesta inspeção.
+
+### Três comportamentos confirmados no código
+
+1. **GapFill descarta o segmento inteiro pelo endereço inicial.** Em src/codegen/phase_gapfill.cpp, gapFillCodeRegions() ignora o segmento inteiro se graph.getFunctionContaining(segment.start) retorna uma função. Não há divisão do segmento em subintervalos para preservar trechos posteriores ainda sem cobertura. A hipótese registrada acima está confirmada como comportamento real; ainda é necessário provar quais bytes dos seis destinos são recuperáveis por essa correção.
+
+2. **O scanner não recebe limite do GAP_FILL.** Em src/codegen/phase_discover.cpp, discoverFunction() passa node->size() como tamanho apenas para CONFIG. Para outras autoridades, só usa ctx.scan.pdataSizes quando existe entrada PDATA. GAP_FILL não tem esse tamanho PDATA. Em src/codegen/function_scanner.cpp, discoverBlocks() calcula funcEnd = containingRegion.end quando pdataSize == 0. Assim, o tamanho do segmento GAP_FILL não limita a leitura.
+
+3. **A expansão por jump table é outro caminho que ultrapassa o limite.** Em discoverBlocks(), quando encontra destino de jump table fora de funcEnd mas dentro da região executável, aumenta funcEnd para target + 4. Isso é útil para funções normais com switch cases fora de linha e deve continuar habilitado para CONFIG/PDATA; para GAP_FILL será necessário um modo estrito que não expanda o limite. Os destinos da tabela não podem ser apagados nem reclassificados arbitrariamente: a correção precisa preservar os destinos originais e deixar explícito como destinos fora do intervalo GAP_FILL são resolvidos.
+
+### Semântica adicional confirmada
+
+- FunctionNode::containsAddress() em src/codegen/function_graph.cpp primeiro aplica o intervalo [base_, base_ + size_); se não houver blocos, considera todo esse intervalo coberto; se houver blocos, testa os blocos e depois considera todo o intervalo coberto para autoridades CONFIG e PDATA.
+- FunctionNode::discover() aumenta size_ até o fim do bloco mais distante. Portanto, para CONFIG/PDATA, o valor usado depois em containsAddress() pode ser maior que o tamanho originalmente declarado. Uma correção de cobertura não deve presumir que node->size() ainda representa exclusivamente o tamanho original do manifesto/PDATA.
+- src/codegen/phase_scan.cpp cria code regions por sequências de palavras não nulas em seções executáveis; scan.dataRegions é uma informação separada. O cálculo de trechos livres deve continuar dentro de scan.codeRegions e não atravessar dados/padding.
+
+### Requisitos da implementação — antes de alterar o SDK
+
+1. Calcular intervalos protegidos por autoridade usando a fonte correta: blocos descobertos para cobertura real e os limites declarados originais de CONFIG/PDATA quando aplicável. Não usar apenas o bounding range mutável de node->size().
+2. Subtrair os intervalos protegidos de cada segmento GAP_FILL e registrar somente subintervalos livres; não descartar o segmento inteiro por causa do primeiro endereço.
+3. Passar ao scanner o tamanho explícito do subintervalo GAP_FILL e adicionar modo estrito para impedir expansão de funcEnd por destinos de jump table fora dele.
+4. Manter a expansão atual de jump tables para CONFIG/PDATA e outras funções normais. Preservar todos os destinos manuais/automáticos; para destino fora do limite GAP_FILL, resolver como destino externo/entrada independente de maneira explícita, sem gerar label interno fora do bloco.
+5. Criar teste de regressão para: segmento que começa dentro de função existente mas contém lacuna posterior; GAP_FILL que tenta ler além do próprio tamanho; jump table normal de CONFIG/PDATA com destino fora do PDATA; e destinos legítimos de tabela mantidos no grafo.
+6. Só então aplicar patch local ao SDK fixado e executar o workflow de validação. Não alterar config/functions.toml nem config/gaps.toml para mascarar os unresolved.
+
+### Estado desta inspeção
+
+- Nenhum arquivo de código alterado; nenhum commit de código; nenhum workflow iniciado.
+- A correção de 0x823D1438 continua sendo a única alteração funcional posterior ao run #12; o run #16 continua sendo a referência de 9 unresolved em seis destinos.
+- Próximo trabalho: implementar/testar a correção de GapFill + limite estrito no patch local do SDK, preservando a semântica de jump tables para CONFIG/PDATA.
+
+Local desta continuidade: marcuscastrooutlok-web/Project-VeronicaX, branch android-arm64, arquivo raiz CONTINUATION.md.
