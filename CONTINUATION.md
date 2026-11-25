@@ -556,3 +556,21 @@ Run #22: https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/run
 **Interpretação:** o patch agora é sintaticamente aplicável e o codegen compila, mas a primeira implementação de subtração de intervalos GAP_FILL não resolveu a cobertura dos nove saltos. Não declarar sucesso funcional. O próximo passo é rastrear, para cada destino, se ele está em `scan.codeRegions`, se foi excluído por `scan.dataRegions`, se cai num intervalo protegido CONFIG/PDATA ou se `splitRegionOnTerminators()`/as condições de registro o descartam. A correção deve ser baseada nesses dados e não em novas entradas arbitrárias de `functions.toml`/`gaps.toml`.
 
 Nenhuma compilação APK Android foi iniciada. O SDK não foi alterado upstream; o patch permanece versionado no projeto.
+
+
+## Diagnóstico dos destinos UnresolvedCall — leitura dos logs do run #22 — 2026-11-25
+
+Foi extraído novamente o log completo do job `codegen` do run #22, incluindo os diagnósticos temporários inseridos no workflow. Evidências confirmadas:
+- Os unresolved partem de funções `CONFIG` curtas, por exemplo: `0x829E21D0`, `0x829E21E0`, `0x829E2178`, `0x829E1D38`, `0x829E1D60`, `0x82B85AB0`, `0x82B85AA0`, `0x82B85A98` e `0x828A7D18`.
+- Os destinos reportados permanecem sem proprietário no grafo após Merge (`target_owner=none`, `target_is_entry=false`).
+- O dump de palavras PPC confirma que o destino `0x829E2244` está mapeado e contém a palavra `0x389D0010`; portanto, ao menos esse destino não é endereço não mapeado nem uma palavra zero/FF evidente.
+- A configuração `config/gaps.toml` já contém entradas sequenciais para pequenos blocos CONFIG/GAPs próximos, incluindo `0x829E2178` até `0x829E2240`, e `0x82B85A98` até `0x82B85AB8`. Não adicionar entradas sem identificar o limite real do bloco e a razão da ausência do destino.
+
+Inspeção do SDK pinned `bd833a2`:
+- `phase_scan.cpp` constrói `scan.codeRegions` interrompendo regiões em palavras zero e constrói `scan.dataRegions` a partir de sequências de palavras zero/FF acima de `dataRegionThreshold`.
+- `phase_discover.cpp` só descobre funções cujo endereço de entrada pertence a um `codeRegion`; para CONFIG, usa o tamanho explicitamente declarado (ou zero quando não há tamanho), e adiciona chamadas externas como funções DISCOVERED.
+- `phase_gapfill.cpp` divide regiões por retornos e tail calls para callables conhecidos, depois tenta registrar cada segmento ainda não coberto.
+
+Conclusão atual: já há evidência de bytes mapeados e de entradas CONFIG muito curtas imediatamente antes de alguns destinos; ainda não está provado se cada destino fica fora de `codeRegions`, dentro de `dataRegions`, ou se a segmentação/ownership do GapFill deixa um intervalo sem candidato. O próximo passo é instrumentar a fase Scan/GAP_FILL para imprimir, para cada destino, o intervalo `codeRegion` que o contém (ou ausência), se está em `dataRegions`, e os segmentos após `splitRegionOnTerminators()` antes/depois da subtração de intervalos protegidos. Não alterar `functions.toml`/`gaps.toml` até essa classificação.
+
+Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md`.
