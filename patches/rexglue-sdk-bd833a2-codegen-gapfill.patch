@@ -96,7 +96,7 @@ index f3da777..0000000 100644
    size_t gapsFound = 0;
    size_t segmentsCreated = 0;
  
-@@ -128,24 +198,30 @@ void gapFillCodeRegions(CodegenContext& ctx) {
+@@ -128,25 +207,23 @@ void gapFillCodeRegions(CodegenContext& ctx) {
      auto segments = splitRegionOnTerminators(region, binary, knownCallables);
  
      for (const auto& segment : segments) {
