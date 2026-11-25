@@ -78,6 +78,54 @@ jobs:
           git -C thirdparty/rexglue-sdk diff --check
           echo "Applied GAP_FILL interval-protection patch to bd833a2."
           
+      - name: Add code-region and GAP_FILL target diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("thirdparty/rexglue-sdk/src/codegen/phase_gapfill.cpp")
+          s = p.read_text()
+          needle = '  size_t gapsFound = 0;\n  size_t segmentsCreated = 0;\n'
+          diag = r'''  // Temporary VeronicaX target classification: code/data regions and split segments.
+            constexpr uint32_t vxTargets[] = {0x829E2470, 0x82221830, 0x82B85AE8,
+                0x828A7E40, 0x829E2458, 0x829E2244};
+            for (uint32_t target : vxTargets) {
+              bool inCode = false, inData = false;
+              for (const auto& r : scan.codeRegions) {
+                if (target >= r.start && target < r.end) {
+                  inCode = true;
+                  REXCODEGEN_WARN("VX_REGION target=0x{:08X} code=[0x{:08X},0x{:08X})", target, r.start, r.end);
+                }
+              }
+              for (const auto& r : scan.dataRegions) {
+                if (target >= r.first && target < r.second) {
+                  inData = true;
+                  REXCODEGEN_WARN("VX_REGION target=0x{:08X} data=[0x{:08X},0x{:08X})", target, r.first, r.second);
+                }
+              }
+              REXCODEGEN_WARN("VX_REGION target=0x{:08X} in_code={} in_data={} entry={} owner={}",
+                  target, inCode, inData, graph.isEntryPoint(target),
+                  graph.getFunctionContaining(target) ? graph.getFunctionContaining(target)->base() : 0);
+            }
+          '''
+          if s.count(needle) != 1:
+              raise SystemExit("Could not find unique GAP_FILL counters insertion point")
+          s = s.replace(needle, needle + diag)
+          needle2 = '    auto segments = splitRegionOnTerminators(region, binary, knownCallables);\n'
+          diag2 = r'''    for (uint32_t target : vxTargets) {
+              if (target >= region.start && target < region.end) {
+                REXCODEGEN_WARN("VX_SEGMENT target=0x{:08X} parent=[0x{:08X},0x{:08X})", target, region.start, region.end);
+              }
+            }
+          '''
+          if s.count(needle2) != 1:
+              raise SystemExit("Could not find unique splitRegion call")
+          s = s.replace(needle2, needle2 + diag2)
+          p.write_text(s)
+          print("Inserted code/data-region and GAP_FILL segment diagnostics.")
+          PY
+
       - name: Add temporary XEX branch-target diagnostics to pinned SDK
         shell: bash
         run: |
