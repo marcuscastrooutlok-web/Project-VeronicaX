@@ -506,3 +506,19 @@ A inspeção estática confirma que os símbolos e a convenção de intervalos u
 Estado de CI: os commits de integração consultados não retornaram status/checks pelo conector disponível. A consulta de workflow runs disponível no conector retorna somente execuções disparadas por pull request; por isso, não foi possível confirmar por essa consulta se o push iniciou o workflow. O workflow mantém `workflow_dispatch` e gatilho `push` na branch `android-arm64` para os arquivos alterados.
 
 Próximo passo técnico: obter a execução do workflow `Android host Codegen check` e examinar primeiro o resultado do passo `Apply VeronicaX codegen GAP_FILL fix to pinned SDK`; em seguida, revisar a compilação host/codegen e, separadamente, executar `scripts/check-android-sdk-build.sh` para Android ARM64.
+
+
+## Correção do patch e resultado CI — 2026-11-25
+
+A primeira validação real do workflow `Android host Codegen check` identificou erro de formato no patch, antes de compilar o SDK:
+- Run #20: https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45699303603
+- Etapa: `Apply VeronicaX codegen GAP_FILL fix to pinned SDK`
+- Erro: `corrupt patch ... rexglue-sdk-bd833a2-codegen-gapfill.patch:99`.
+
+Causa identificada: contagens incorretas nos cabeçalhos dos hunks do diff. O patch foi corrigido em dois commits:
+- `d6bd47f4a4e315d0bf8a66c9128c2a63f289cc56` — correção da contagem do segundo hunk.
+- `448ef87b836766ab03d7c2a9e728999b8a1d47f4` — correção da contagem e posição do terceiro hunk (`@@ -128,25 +207,23 @@`).
+
+A validação automática foi disparada novamente. Run #22 está em andamento: https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45702372406. Até esta atualização, checkout do projeto, checkout do XEX privado e verificação/hash do XEX passaram; instalação das dependências ainda estava em andamento. O passo de aplicação do patch e a compilação host ainda não tinham sido executados, portanto não há confirmação de sucesso do patch corrigido nem de geração de código.
+
+Importante: o run #21 foi disparado pelo commit intermediário `d6bd47f...`, antes da correção final do terceiro hunk. Usar o run #22 (commit `448ef87...`) como validação da versão final do patch.
