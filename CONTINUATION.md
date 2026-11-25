@@ -538,3 +538,21 @@ Resultados confirmados nos jobs/logs:
 - Permanecem 9 `UnresolvedCall`, nos destinos 0x829E2470, 0x82221830, 0x82B85AE8, 0x828A7E40, 0x829E2458 e 0x829E2244 (seis destinos distintos). Nos logs de Merge, todos aparecem com `target_owner=none` e `target_is_entry=false`.
 
 Conclusão: o problema de formato do patch foi resolvido; a alteração é aplicada e o codegen compila. Porém, a primeira implementação de subtração de intervalos GAP_FILL **não reduziu os 9 unresolved**. Portanto, não considerar a correção funcional concluída e não avançar para APK. A próxima investigação deve rastrear por que esses seis destinos continuam sem proprietário após GapFill (incluindo se são código real, destinos de switch/jump table, ou lacunas fora dos code regions), e comparar com o run #16 anterior. Não mascarar os erros adicionando entradas arbitrárias ao manifesto.
+
+
+## Resultado da validação do patch GAP_FILL corrigido — run #22 — 2026-11-25
+
+Run #22: https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45702372406
+
+**Etapas aprovadas:**
+- checkout do projeto e do XEX privado;
+- verificação/hash do XEX;
+- checkout do SDK fixado em `bd833a2`;
+- aplicação do patch GAP_FILL corrigido (`git apply`);
+- compilação do codegen host.
+
+**Etapa que falhou:** execução do codegen/validação do `Default.xex`, não a aplicação do patch nem a compilação do SDK. O codegen chegou às fases Register, Scan, Discover, GapFill, Merge e Validate. A validação terminou com os mesmos 9 `UnresolvedCall` já observados no run #16: destinos `0x829E2470`, `0x82221830`, `0x82B85AE8`, `0x828A7E40`, `0x829E2458` e `0x829E2244` (alguns repetidos a partir de múltiplas chamadas). O log declara que esses destinos não pertencem a nenhuma função.
+
+**Interpretação:** o patch agora é sintaticamente aplicável e o codegen compila, mas a primeira implementação de subtração de intervalos GAP_FILL não resolveu a cobertura dos nove saltos. Não declarar sucesso funcional. O próximo passo é rastrear, para cada destino, se ele está em `scan.codeRegions`, se foi excluído por `scan.dataRegions`, se cai num intervalo protegido CONFIG/PDATA ou se `splitRegionOnTerminators()`/as condições de registro o descartam. A correção deve ser baseada nesses dados e não em novas entradas arbitrárias de `functions.toml`/`gaps.toml`.
+
+Nenhuma compilação APK Android foi iniciada. O SDK não foi alterado upstream; o patch permanece versionado no projeto.
