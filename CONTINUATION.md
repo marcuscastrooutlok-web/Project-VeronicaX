@@ -488,3 +488,6 @@ Integração:
 **Validação ainda pendente:** o patch foi versionado e integrado aos dois caminhos, mas ainda precisa passar por `git apply --check`, compilação host/codegen e compilação Android. A mudança não deve ser considerada validada até esses resultados. A resolução de destinos externos de jump tables também permanece como etapa separada; este patch evita que os intervalos protegidos sejam reclamados pelo GAP_FILL, mas não altera diretamente a política de resolução de saltos.
 
 Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md`.
+
+
+Ajuste adicional de CI: o passo de aplicação do patch no workflow host usa agora o caminho absoluto `$GITHUB_WORKSPACE/patches/...`, pois o `git -C thirdparty/rexglue-sdk` muda o diretório de execução. Commit dessa correção: `b72f90d`. No momento da atualização, o endpoint de status do commit ainda não reportava checks; portanto não há resultado de aplicação/compilação a registrar.
