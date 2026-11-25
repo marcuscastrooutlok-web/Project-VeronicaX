@@ -72,7 +72,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          PATCH="patches/rexglue-sdk-bd833a2-codegen-gapfill.patch"
+          PATCH="$GITHUB_WORKSPACE/patches/rexglue-sdk-bd833a2-codegen-gapfill.patch"
           git -C thirdparty/rexglue-sdk apply --check "$PATCH"
           git -C thirdparty/rexglue-sdk apply "$PATCH"
           git -C thirdparty/rexglue-sdk diff --check
