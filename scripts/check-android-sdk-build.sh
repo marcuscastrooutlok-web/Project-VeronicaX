@@ -24,6 +24,10 @@ echo "Checking and applying VeronicaX patch..."
 git -C "${SDK_DIR}" apply --check "${ROOT}/patches/rexglue-sdk-bd833a2-veronicax.patch"
 git -C "${SDK_DIR}" apply "${ROOT}/patches/rexglue-sdk-bd833a2-veronicax.patch"
 
+echo "Checking and applying VeronicaX codegen GAP_FILL patch..."
+git -C "${SDK_DIR}" apply --check "${ROOT}/patches/rexglue-sdk-bd833a2-codegen-gapfill.patch"
+git -C "${SDK_DIR}" apply "${ROOT}/patches/rexglue-sdk-bd833a2-codegen-gapfill.patch"
+
 echo "Checking and applying Android/Bionic patch..."
 git -C "${SDK_DIR}" apply --check "${ROOT}/patches/rexglue-sdk-bd833a2-android.patch"
 git -C "${SDK_DIR}" apply "${ROOT}/patches/rexglue-sdk-bd833a2-android.patch"
