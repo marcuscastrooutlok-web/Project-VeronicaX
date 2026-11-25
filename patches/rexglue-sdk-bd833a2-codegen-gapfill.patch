@@ -1,0 +1,141 @@
+diff --git a/src/codegen/phase_gapfill.cpp b/src/codegen/phase_gapfill.cpp
+index f3da777..0000000 100644
+--- a/src/codegen/phase_gapfill.cpp
++++ b/src/codegen/phase_gapfill.cpp
+@@ -10,6 +10,7 @@
+ 
+ #include "ppc/instruction.h"
+ 
++#include <algorithm>
+ #include <unordered_set>
+ 
+ #include <rex/codegen/phases.h>
+@@ -119,6 +120,75 @@ void gapFillCodeRegions(CodegenContext& ctx) {
+   for (const auto& [addr, node] : graph.functions()) {
+     knownCallables.insert(addr);
+   }
+ 
++  // GAP_FILL must only claim bytes that are not already owned by a real
++  // function or classified as data. A code region is a scanner-level range,
++  // not a function boundary: CONFIG/PDATA functions and jump-table cases can
++  // live in the middle of one such region.
++  std::vector<std::pair<uint32_t, uint32_t>> protectedRanges;
++  auto addProtectedRange = [&](uint32_t start, uint32_t size) {
++    if (size == 0 || start > UINT32_MAX - size)
++      return;
++    protectedRanges.emplace_back(start, start + size);
++  };
++
++  for (const auto& [addr, node] : graph.functions()) {
++    if (node->authority() == FunctionAuthority::GAP_FILL)
++      continue;
++
++    // Preserve explicit CONFIG extents from the manifest rather than using
++    // FunctionNode::size(), which discover() may enlarge while finding blocks.
++    if (node->authority() == FunctionAuthority::CONFIG) {
++      auto configIt = ctx.Config().functions.find(addr);
++      if (configIt != ctx.Config().functions.end())
++        addProtectedRange(addr, configIt->second.getSize(addr));
++    }
++
++    // PDATA may be extended for exception metadata; use the final registered
++    // PDATA extent, which is also the boundary used by discovery.
++    if (node->authority() == FunctionAuthority::PDATA) {
++      auto pdataIt = scan.pdataSizes.find(addr);
++      if (pdataIt != scan.pdataSizes.end())
++        addProtectedRange(addr, pdataIt->second);
++    }
++
++    // Helpers/import thunks may not have discovered blocks, but their
++    // registered extents are still protected.
++    if (node->authority() == FunctionAuthority::HELPER ||
++        node->authority() == FunctionAuthority::IMPORT) {
++      addProtectedRange(addr, node->size());
++    }
++
++    // For discovered functions, protect the actual decoded blocks. This
++    // avoids treating holes between discontiguous blocks as owned code.
++    for (const auto& block : node->blocks())
++      addProtectedRange(block.base, block.size);
++  }
++
++  // Executable sections can contain embedded tables/padding. Never offer
++  // scanner-classified data to the speculative function discovery pass.
++  for (const auto& range : scan.dataRegions)
++    addProtectedRange(range.first, range.second - range.first);
++
++  std::sort(protectedRanges.begin(), protectedRanges.end());
++  std::vector<std::pair<uint32_t, uint32_t>> mergedRanges;
++  for (const auto& range : protectedRanges) {
++    if (mergedRanges.empty() || range.first > mergedRanges.back().second) {
++      mergedRanges.push_back(range);
++    } else {
++      mergedRanges.back().second = std::max(mergedRanges.back().second, range.second);
++    }
++  }
++
++  auto subtractProtectedRanges = [&](const CodeRegion& segment) {
++    std::vector<CodeRegion> available;
++    uint32_t cursor = segment.start;
++    for (const auto& range : mergedRanges) {
++      if (range.second <= cursor)
++        continue;
++      if (range.first >= segment.end)
++        break;
++      if (range.first > cursor)
++        available.push_back({cursor, std::min(range.first, segment.end)});
++      cursor = std::max(cursor, range.second);
++      if (cursor >= segment.end)
++        break;
++    }
++    if (cursor < segment.end)
++      available.push_back({cursor, segment.end});
++    return available;
++  };
++
+   size_t gapsFound = 0;
+   size_t segmentsCreated = 0;
+ 
+@@ -128,24 +198,30 @@ void gapFillCodeRegions(CodegenContext& ctx) {
+     auto segments = splitRegionOnTerminators(region, binary, knownCallables);
+ 
+     for (const auto& segment : segments) {
+-      // Skip if this segment's start is already a registered function entry
+-      if (graph.isEntryPoint(segment.start))
+-        continue;
+-
+-      // Skip if this segment's start is inside another function
+-      if (auto* containingFunc = graph.getFunctionContaining(segment.start)) {
+-        continue;
+-      }
+-
+-      // Skip if this looks like exception handler data (handler ptr + rdata ptr)
+-      if (looksLikeExceptionData(binary, graph, segment.start))
+-        continue;
+-
+-      uint32_t segmentSize = segment.size();
+-      graph.addFunction(segment.start, segmentSize, FunctionAuthority::GAP_FILL, false);
+-
+-      REXCODEGEN_TRACE("GapFill: registered sub_{:08X} (0x{:08X}-0x{:08X}, {} bytes)",
+-                       segment.start, segment.start, segment.end, segmentSize);
+-      segmentsCreated++;
++      for (const auto& available : subtractProtectedRanges(segment)) {
++        // PPC instructions are four bytes; discard fragments too small to
++        // contain one complete instruction.
++        if (available.size() < 4)
++          continue;
++        if (graph.isEntryPoint(available.start) ||
++            graph.getFunctionContaining(available.start))
++          continue;
++        if (looksLikeExceptionData(binary, graph, available.start))
++          continue;
++
++        const uint32_t segmentSize = available.size();
++        graph.addFunction(available.start, segmentSize, FunctionAuthority::GAP_FILL, false);
++        REXCODEGEN_TRACE("GapFill: registered sub_{:08X} (0x{:08X}-0x{:08X}, {} bytes)",
++                         available.start, available.start, available.end, segmentSize);
++        segmentsCreated++;
++      }
+     }
+ 
+     gapsFound++;
