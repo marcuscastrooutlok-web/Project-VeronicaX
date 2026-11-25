@@ -314,3 +314,100 @@ Local desta continuidade: `marcuscastrooutlok-web/Project-VeronicaX`, branch `an
 - A alteração dispara o workflow de codegen pela regra de paths. Verificar o próximo run antes de qualquer correção adicional.
 
 Local desta continuidade: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo raiz `CONTINUATION.md`.
+
+
+## Atualização técnica — runs #15/#16 e análise do GapFill/Scanner (2026-11-25)
+
+### Resultado dos workflows após corrigir 0x823D1438
+
+- Run #15: [45317094587](https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45317094587), commit `84f54c8b7f6b8b330fec0867b99614a28c6023f0` (override de 0x823D1438).
+- Run #16: [45317098431](https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45317098431), job `138186446398`, commit `33a6fdec90ca4eacbce12d044f880140e334d037` (notas de funções).
+- Run #16 herdou o override de 0x823D1438 e confirmou que os dois branches para esse endereço foram resolvidos.
+- Resultado: unresolved caiu de 11 para **9**, em seis destinos:
+  - `0x829E2470`: 4 branches
+  - `0x82221830`: 1
+  - `0x82B85AE8`: 1
+  - `0x828A7E40`: 1
+  - `0x829E2458`: 1
+  - `0x829E2244`: 1
+- Chamadores exatos reportados no log #16:
+  ```
+  0x829E2470 from 0x829E21D4
+  0x82221830 from 0x82221824
+  0x82B85AE8 from 0x82B85AA4
+  0x829E2470 from 0x829E1D68
+  0x828A7E40 from 0x828A7D18
+  0x829E2458 from 0x829E21EC
+  0x829E2244 from 0x829E217C
+  0x829E2470 from 0x829E21BC
+  0x829E2470 from 0x829E2228
+  ```
+- A instrumentação `VX_GRAPH` manteve `target_owner=none` e `target_is_entry=false` para os seis destinos. Os chamadores são blocos com autoridade CONFIG.
+- Nenhum APK foi produzido; o bloqueio continua no codegen host / validação.
+
+### Scanner: condição que produz os unresolved
+
+Arquivo upstream inspecionado diretamente em `rexglue/rexglue-sdk`, ref fixada `bd833a2`: `src/codegen/function_scanner.cpp`, função `discoverBlocks()`.
+
+- `funcEnd = pdataSize > 0 ? entryPoint + pdataSize : containingRegion.end`.
+- Para funções CONFIG, `phase_discover.cpp` passa somente o tamanho explicitamente declarado; não herda tamanho PDATA quando CONFIG tem size zero.
+- `isInternalTarget(t)` considera interno apenas quando `entryPoint <= t < funcEnd` e o destino ainda não é uma função conhecida.
+- Em branch incondicional, destino classificado como interno vira label/bloco interno; caso contrário é registrado como tail call externo e unresolved branch.
+- Assim, os branches remanescentes saem dos limites que o scanner está usando para cada chamador (ou são destinos conhecidos como função; os logs confirmam que não são entradas conhecidas). Isso explica por que os destinos são tratados como externos, mas não prova que sejam funções independentes.
+
+### GapFill: código efetivo e risco de correção ingênua
+
+Arquivo upstream: `src/codegen/phase_gapfill.cpp`, ref `bd833a2`.
+
+- `splitRegionOnTerminators()` percorre a região de código e separa segmentos em `blr` e em branch incondicional `b` apenas quando o destino já está em `knownCallables` (exceto tail recursion para o início do segmento).
+- Para cada segmento, `gapFillCodeRegions()`:
+  1. ignora se o início já é entrada;
+  2. ignora o segmento inteiro se `graph.getFunctionContaining(segment.start)` retorna função;
+  3. ignora dados de exceção;
+  4. caso contrário, registra o segmento inteiro como GAP_FILL.
+- Depois chama `discoverPendingFunctions()` para descobrir blocos dos GAP_FILL e executa `cleanupAbsorbedGapFills()`.
+- O defeito potencial está no filtro por início do segmento: não verifica se há subtrechos posteriores ainda não cobertos por blocos descobertos. Um segmento cujo início cai dentro de uma função existente pode ser descartado integralmente mesmo que contenha endereços posteriores não cobertos.
+- **Cuidado essencial:** `FunctionNode::containsAddress()` em `src/codegen/function_graph.cpp` retorna true para o intervalo linear quando não há blocos. Quando existem blocos, verifica os blocos, mas para autoridades CONFIG e PDATA também confia no tamanho declarado mesmo que nenhum bloco cubra o endereço. Portanto, não usar simplesmente `getFunctionContaining()` como teste de cobertura real.
+- O pipeline é Register → Scan → Discover → GapFill → Merge → Validate. GapFill roda depois da descoberta inicial; é necessário verificar os blocos reais das funções CONFIG/PDATA nessa etapa antes de definir a correção.
+- Hipótese de causa: GapFill pode ignorar uma região inteira porque o início do segmento está dentro de uma função já registrada, deixando trechos posteriores descobertos. Essa hipótese é consistente com o código, mas ainda precisa ser demonstrada para os seis destinos específicos.
+- Não aplicar subtração de intervalos baseada apenas em `getFunctionContaining()`: CONFIG/PDATA podem reivindicar intervalos presumidos, e isso poderia criar GAP_FILL dentro de dados/trechos que pertencem logicamente a uma função ou fragmentar uma função real.
+
+### Config/gaps e contexto dos seis destinos
+
+`config/gaps.toml` contém vários intervalos curtos gerados por heurísticas de pointer/vtable, incluindo:
+
+- `0x829E2178–0x829E2198`, e entradas curtas sucessivas de `0x829E2198` até `0x829E2240` (subfaixas de 4–16 bytes).
+- `0x829E2458–0x829E2478`.
+- `0x82221808–0x82221818` e `0x82221818–0x82221828`.
+- `0x828A7D18–0x828A7D20`, `0x828A7D38–0x828A7D40`, `0x828A7D58–0x828A7D60`, além de faixas posteriores a partir de `0x828A7EF8`.
+- `0x82B85A88–0x82B85A90`, `0x82B85A98–0x82B85AA0`, `0x82B85AA0–0x82B85AA8`, `0x82B85AA8–0x82B85AB0`, `0x82B85AB0–0x82B85AB8`.
+
+Observações de fluxo/instruções já verificadas:
+- `0x829E2244`: instrução `addi r4,r29,16`; parece continuação de sequência e não tem prólogo claro. O endereço fica 4 bytes depois do intervalo `0x829E2230–0x829E2240`; isso não é prova de nova função.
+- `0x829E2458`: começa com `mr r31,r3`, segue com branches/instruções de movimentação e chamada; `0x829E2470` começa com `lwz r11,56(r29)`. Os dois endereços parecem parte de uma sequência contínua/blocos da mesma região, não há evidência para declarar duas funções separadas.
+- `0x82221830`: começa com `lfs f1,112(r1)`; branch de `0x82221824` salta para ele. Não há prólogo evidente.
+- `0x828A7E40`: começa com `lwz r11,232(r31)`, dentro de loop/continuação de fluxo anterior, sem prólogo evidente.
+- `0x82B85AE8`: começa com `stw r30,0(r29)`, seguido de movimentação de argumento, ajuste de stack e branch; sequência seguinte contém instruções que parecem prólogo em `0x82B85B08`. Precisa de CFG completo para determinar se é bloco interno ou entrada/tail entry.
+- Não adicionar seis funções artificiais em `config/functions.toml`.
+
+### Próxima ação técnica obrigatória
+
+1. No SDK `bd833a2`, inspecionar a representação de `CodeRegion`, os blocos armazenados nos `FunctionNode` após Discover e como `discoverPendingFunctions()` altera os blocos antes/depois de GapFill.
+2. Determinar quais endereços dos seis destinos são cobertos por blocos reais e quais apenas por ranges CONFIG/PDATA.
+3. Verificar se GapFill está descartando segmento cujo início é coberto mas que contém subtrechos posteriores sem bloco. Se confirmado, implementar correção que calcule cobertura com blocos/instruções reais, preservando as faixas declaradas e sem criar GAP_FILL em dados ou dentro de funções válidas.
+4. Analisar os fluxos de origem/destino dos seis unresolved; não converter automaticamente cada branch em função.
+5. Criar patch local dedicado do SDK no repositório Project-VeronicaX (não alterar o upstream pinned), com teste/regressão se viável.
+6. Rodar o workflow host codegen apenas depois de uma alteração concreta; confirmar a lista de unresolved. Só avançar para build Android depois de Validate passar.
+7. Atualizar este arquivo novamente após evidência/alteração nova. Não atualizar apenas para registrar tentativas sem resultado.
+
+### Estado de execução e artefatos
+
+- Último run analisado: #16, ID `45317098431`, job `138186446398`; 9 unresolved em seis destinos.
+- SDK pin continua `bd833a2`.
+- Nenhuma correção GapFill foi implementada ainda.
+- `config/functions.toml` mantém a correção comprovada de `0x823D1438` (fim exclusivo `0x823D1460`), que eliminou dois unresolved.
+- `config/gaps.toml` não foi alterado nesta etapa.
+- Não há APK funcional ou APK novo confirmado.
+- Não solicitar XEX nem PAT; não expor o secret.
+
+Local desta continuidade: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo raiz `CONTINUATION.md`.
