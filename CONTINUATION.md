@@ -466,3 +466,25 @@ A inspeção também confirmou que FunctionNode expõe base(), size(), blocks() 
 Estado: nenhum código ou patch funcional alterado; nenhum workflow iniciado. Próxima implementação: preservar o tamanho declarado original, subtrair intervalos protegidos dos segmentos GAP_FILL, limitar estritamente a descoberta GAP_FILL e manter destinos de jump table fora do intervalo como referências externas resolvíveis, sem alterar a semântica normal CONFIG/PDATA.
 
 Local: marcuscastrooutlok-web/Project-VeronicaX, branch android-arm64, arquivo CONTINUATION.md.
+
+
+## Correção GAP_FILL — implementação inicial — 2026-11-25
+
+Foi criado o patch `patches/rexglue-sdk-bd833a2-codegen-gapfill.patch` para a fase `src/codegen/phase_gapfill.cpp` do ReXGlue fixado em `bd833a2`.
+
+Alterações implementadas no patch:
+- Subtrai dos segmentos candidatos os blocos já descobertos por funções não-GAP_FILL.
+- Preserva os intervalos explicitamente declarados em CONFIG usando `ctx.Config().functions` (não usa `FunctionNode::size()` mutável após `discover()`).
+- Preserva os limites PDATA usando `ctx.scan.pdataSizes`.
+- Protege os intervalos registrados de HELPERS e IMPORTS.
+- Exclui também `scan.dataRegions`, evitando tratar dados/padding dentro de seções executáveis como novas funções.
+- Só registra fragmentos com pelo menos uma instrução PPC completa (4 bytes), mantendo o limite final exclusivo.
+
+Integração:
+- `.github/workflows/android-codegen-check.yml` aplica o novo patch ao SDK após checkout de `bd833a2` e antes dos diagnósticos/compilação host.
+- `scripts/check-android-sdk-build.sh` aplica o mesmo patch após `rexglue-sdk-bd833a2-veronicax.patch` e antes do patch Android/Bionic.
+- O workflow inclui o patch e o script nos caminhos monitorados.
+
+**Validação ainda pendente:** o patch foi versionado e integrado aos dois caminhos, mas ainda precisa passar por `git apply --check`, compilação host/codegen e compilação Android. A mudança não deve ser considerada validada até esses resultados. A resolução de destinos externos de jump tables também permanece como etapa separada; este patch evita que os intervalos protegidos sejam reclamados pelo GAP_FILL, mas não altera diretamente a política de resolução de saltos.
+
+Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md`.
