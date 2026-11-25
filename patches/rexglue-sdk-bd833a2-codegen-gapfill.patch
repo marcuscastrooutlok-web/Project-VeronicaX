@@ -21,7 +21,7 @@ index f3da777..0000000 100644
 +  // live in the middle of one such region.
 +  std::vector<std::pair<uint32_t, uint32_t>> protectedRanges;
 +  auto addProtectedRange = [&](uint32_t start, uint32_t size) {
-+    if (size == 0 || start > UINT32_MAX - size)
++    if (size == 0 || start + size < start)
 +      return;
 +    protectedRanges.emplace_back(start, start + size);
 +  };
