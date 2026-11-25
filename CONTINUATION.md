@@ -491,3 +491,18 @@ Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arqui
 
 
 Ajuste adicional de CI: o passo de aplicação do patch no workflow host usa agora o caminho absoluto `$GITHUB_WORKSPACE/patches/...`, pois o `git -C thirdparty/rexglue-sdk` muda o diretório de execução. Commit dessa correção: `b72f90d`. No momento da atualização, o endpoint de status do commit ainda não reportava checks; portanto não há resultado de aplicação/compilação a registrar.
+
+
+## Auditoria do patch GAP_FILL — 2026-11-25
+
+Foi feita conferência do patch contra os arquivos originais do SDK no commit fixado `bd833a2`:
+- `src/codegen/phase_gapfill.cpp`: confirma que `gapFillCodeRegions()` possui `auto& scan = ctx.scan`, portanto o acesso a `scan.pdataSizes`, `scan.codeRegions` e `scan.dataRegions` é válido.
+- `src/codegen/phase_scan.cpp`: confirma que `dataRegions` armazena pares `{início, fim}` (fim exclusivo), compatíveis com a subtração `second - first` usada no patch.
+- `include/rex/codegen/config.h`: confirma `FunctionConfig::getSize(address)` e que `end` é exclusivo.
+- `include/rex/codegen/function_node.h`: confirma `blocks()`, `Block::size` consumido pelo patch, `authority()` e `size()`.
+
+A inspeção estática confirma que os símbolos e a convenção de intervalos usados pelo patch correspondem à revisão `bd833a2`. Isso **não substitui** o `git apply --check`, build C++ host, execução do codegen com o XEX privado nem build Android NDK.
+
+Estado de CI: os commits de integração consultados não retornaram status/checks pelo conector disponível. A consulta de workflow runs disponível no conector retorna somente execuções disparadas por pull request; por isso, não foi possível confirmar por essa consulta se o push iniciou o workflow. O workflow mantém `workflow_dispatch` e gatilho `push` na branch `android-arm64` para os arquivos alterados.
+
+Próximo passo técnico: obter a execução do workflow `Android host Codegen check` e examinar primeiro o resultado do passo `Apply VeronicaX codegen GAP_FILL fix to pinned SDK`; em seguida, revisar a compilação host/codegen e, separadamente, executar `scripts/check-android-sdk-build.sh` para Android ARM64.
