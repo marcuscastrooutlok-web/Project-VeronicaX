@@ -574,3 +574,16 @@ Inspeção do SDK pinned `bd833a2`:
 Conclusão atual: já há evidência de bytes mapeados e de entradas CONFIG muito curtas imediatamente antes de alguns destinos; ainda não está provado se cada destino fica fora de `codeRegions`, dentro de `dataRegions`, ou se a segmentação/ownership do GapFill deixa um intervalo sem candidato. O próximo passo é instrumentar a fase Scan/GAP_FILL para imprimir, para cada destino, o intervalo `codeRegion` que o contém (ou ausência), se está em `dataRegions`, e os segmentos após `splitRegionOnTerminators()` antes/depois da subtração de intervalos protegidos. Não alterar `functions.toml`/`gaps.toml` até essa classificação.
 
 Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md`.
+
+
+## Instrumentação direta de codeRegions/GAP_FILL — 2026-11-25
+
+Foi adicionada uma etapa temporária no workflow `.github/workflows/android-codegen-check.yml` para classificar os seis destinos ainda não resolvidos diretamente dentro do SDK após aplicar o patch GAP_FILL:
+- imprime para cada destino se está dentro de algum `scan.codeRegions`, com os limites do intervalo;
+- imprime se está dentro de algum `scan.dataRegions`, com os limites do intervalo;
+- imprime se já é entry point ou possui função proprietária no grafo antes do GAP_FILL;
+- imprime qual região de código contém o destino antes de `splitRegionOnTerminators()`.
+
+Commit que adicionou a instrumentação: `70b88394f8736f7175c4d291b30da05febad25e9`. O push na branch `android-arm64` deve iniciar o workflow automaticamente. Ainda não há resultado desta nova execução; aguardar o job e avaliar os registros `VX_REGION` e `VX_SEGMENT`. A instrumentação é diagnóstica e não altera o XEX, os manifestos ou a lógica de registro de funções.
+
+Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md`.
