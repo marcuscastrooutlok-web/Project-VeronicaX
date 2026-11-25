@@ -522,3 +522,19 @@ Causa identificada: contagens incorretas nos cabeçalhos dos hunks do diff. O pa
 A validação automática foi disparada novamente. Run #22 está em andamento: https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45702372406. Até esta atualização, checkout do projeto, checkout do XEX privado e verificação/hash do XEX passaram; instalação das dependências ainda estava em andamento. O passo de aplicação do patch e a compilação host ainda não tinham sido executados, portanto não há confirmação de sucesso do patch corrigido nem de geração de código.
 
 Importante: o run #21 foi disparado pelo commit intermediário `d6bd47f...`, antes da correção final do terceiro hunk. Usar o run #22 (commit `448ef87...`) como validação da versão final do patch.
+
+
+## Resultado do Workflow #22 — GAP_FILL aplicado, codegen executado — 2026-11-25
+
+Execução: https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45702372406
+Commit validado: `448ef87b836766ab03d7c2a9e728999b8a1d47f4`.
+
+Resultados confirmados nos jobs/logs:
+- Checkout do projeto, checkout e verificação/hash do XEX privado: sucesso.
+- Aplicação do patch `rexglue-sdk-bd833a2-codegen-gapfill.patch`: sucesso.
+- Inserção dos diagnósticos temporários: sucesso.
+- Compilação do ReXGlue host codegen: sucesso.
+- Execução do codegen no `Default.xex`: chegou às fases Register, Scan, Discover, GapFill, Merge e Validate, mas falhou na validação final.
+- Permanecem 9 `UnresolvedCall`, nos destinos 0x829E2470, 0x82221830, 0x82B85AE8, 0x828A7E40, 0x829E2458 e 0x829E2244 (seis destinos distintos). Nos logs de Merge, todos aparecem com `target_owner=none` e `target_is_entry=false`.
+
+Conclusão: o problema de formato do patch foi resolvido; a alteração é aplicada e o codegen compila. Porém, a primeira implementação de subtração de intervalos GAP_FILL **não reduziu os 9 unresolved**. Portanto, não considerar a correção funcional concluída e não avançar para APK. A próxima investigação deve rastrear por que esses seis destinos continuam sem proprietário após GapFill (incluindo se são código real, destinos de switch/jump table, ou lacunas fora dos code regions), e comparar com o run #16 anterior. Não mascarar os erros adicionando entradas arbitrárias ao manifesto.
