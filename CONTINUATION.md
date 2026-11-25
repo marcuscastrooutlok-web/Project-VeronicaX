@@ -447,3 +447,22 @@ Inspeção direta nos arquivos do SDK upstream rexglue/rexglue-sdk, ref bd833a2.
 - Próximo trabalho: implementar/testar a correção de GapFill + limite estrito no patch local do SDK, preservando a semântica de jump tables para CONFIG/PDATA.
 
 Local desta continuidade: marcuscastrooutlok-web/Project-VeronicaX, branch android-arm64, arquivo raiz CONTINUATION.md.
+
+
+## Continuação — integração da correção ao workflow — 2026-11-25
+
+A leitura dos workflows mostrou uma diferença importante que precisa ser corrigida antes da validação:
+
+- .github/workflows/android-codegen-check.yml clona rexglue/rexglue-sdk em bd833a2 e insere diagnósticos temporários, mas não aplica o patch do projeto antes de compilar e executar o codegen.
+- scripts/check-android-sdk-build.sh aplica o patch VeronicaX e depois o patch Android/Bionic. Portanto, o workflow de codegen e o workflow de build não estão validando exatamente a mesma árvore de SDK.
+- patches/rexglue-sdk-bd833a2-veronicax.patch contém somente alterações de memória/thread (xmemory.h, xmemory.cpp e xthread.cpp); ainda não contém a correção de GAP_FILL/scanner.
+
+### Consequência e plano imediato
+
+A correção do codegen deve ser mantida em patch separado e versionado contra bd833a2, para não misturar o ajuste de análise com as mudanças de runtime Android. O workflow de codegen deverá aplicar, nesta ordem, o patch VeronicaX existente e o novo patch de codegen antes de inserir diagnósticos/compilar. O workflow de build Android deverá aplicar o mesmo patch de codegen entre o patch VeronicaX e o patch Android/Bionic.
+
+A inspeção também confirmou que FunctionNode expõe base(), size(), blocks() e containsAddress(), mas não preserva um campo público para o tamanho originalmente declarado depois de discover() ampliar size_. O cálculo de intervalos protegidos deverá usar os blocos descobertos e ctx.scan.pdataSizes; para CONFIG com tamanho declarado será necessário preservar explicitamente esse tamanho original, em vez de confiar no size() mutável.
+
+Estado: nenhum código ou patch funcional alterado; nenhum workflow iniciado. Próxima implementação: preservar o tamanho declarado original, subtrair intervalos protegidos dos segmentos GAP_FILL, limitar estritamente a descoberta GAP_FILL e manter destinos de jump table fora do intervalo como referências externas resolvíveis, sem alterar a semântica normal CONFIG/PDATA.
+
+Local: marcuscastrooutlok-web/Project-VeronicaX, branch android-arm64, arquivo CONTINUATION.md.
