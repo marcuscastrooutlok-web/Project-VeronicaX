@@ -927,3 +927,18 @@ Arquivo: `.github/workflows/android-codegen-check.yml`.
 A consulta disponível de runs por commit não retornou execuções (o wrapper consultado filtra runs disparados por pull request); portanto, ainda não há ID/resultado de execução confirmado nesta etapa. Não afirmar que os novos logs já foram produzidos. Nenhum patch de produção foi alterado e nenhum APK foi gerado.
 
 Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md`.
+
+
+## Resultado do workflow #27 — falha na compilação da instrumentação (2026-11-26)
+
+Run: https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45871103805
+- Run ID: 45871103805; job `codegen`, job ID `140086426919`.
+- Commit testado: `d5ca4ea6496fbacf2f9f2603f1d73122ba0f4934` (branch `android-arm64`).
+- Checkout do projeto e do XEX privado, validação do hash, aplicação do patch GAP_FILL e os três passos de instrumentação: sucesso.
+- A compilação parou em `src/codegen/phase_register.cpp`, antes de executar o codegen do XEX. Portanto, nenhum log `VX_EH_*` ou `VX_OWNER_CANDIDATE` foi produzido como resultado de execução; as ocorrências desses nomes no log são apenas o script de instrumentação sendo impresso.
+- Erro exato: `non-const reference cannot bind to bit-field 'ExceptionFlag'`, na chamada `REXCODEGEN_WARN(..., fn.ExceptionFlag, ...)`, linha 625. O bit-field não pode ser encaminhado diretamente ao parâmetro de referência não-const usado pelo logger/formatação.
+- Correção mínima: copiar `fn.ExceptionFlag` para uma variável local integral/booleana antes de passá-la ao logger (por exemplo, `const auto exceptionFlag = static_cast<uint32_t>(fn.ExceptionFlag);`) e registrar essa cópia. Não alterar o código de produção nem o comportamento do parser.
+- Run #27 não validou nem invalidou os seis destinos; o diagnóstico de EH continua pendente porque a compilação não chegou a executá-lo.
+- Nenhum APK foi produzido.
+
+Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md` na raiz.
