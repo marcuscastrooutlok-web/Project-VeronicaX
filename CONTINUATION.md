@@ -722,3 +722,23 @@ A documentação pública do ReXGlue descreve explicitamente “tail call to mid
 Nenhum XEX, manifesto ou limite PDATA foi alterado. Nenhuma APK foi gerada.
 
 Local: repositório `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md` na raiz.
+
+
+## Inspeção do resolvedor Merge no SDK bd833a2 — causa imediata identificada (2026-11-25)
+
+Fonte consultada diretamente no repositório `rexglue/rexglue-sdk`, ref `bd833a2`:
+- `src/codegen/function_graph.cpp` (SHA do blob `fc918bb2d0b170bb338b5f15197664d427e578ac`).
+- `src/codegen/phase_merge.cpp` (SHA do blob `cc0ad39b5585e62b906d2f37902fceaa487bb6ec`).
+- `src/codegen/phase_discover.cpp` (SHA do blob `1c735482a227d52375793f3dac1f9c04d1062b53`).
+
+**Causa imediata confirmada no código:** `FunctionGraph::tryResolveFunction()` tenta resolver cada salto como label interno da própria função chamadora (`node->tryResolveAsInternalLabel(target)`), entrada exata (`getFunction(target)`) ou import. Não consulta a função proprietária do destino via `getFunctionContaining(target)`. O método `FunctionNode::tryResolveAsInternalLabel()` chama `containsAddress()` no próprio nó chamador. Portanto, um salto originado de CONFIG para endereço interno de uma função PDATA diferente não pode ser resolvido por nenhuma dessas regras, mesmo que o endereço esteja coberto por PDATA e por blocos decodificados de outra função.
+
+A função `getFunctionContaining()` existe, mas é usada em outras rotinas; sua existência não implica que o resolvedor aceite chamadas para endereços internos de outro nó. `classifyTarget()` também só classifica como interno quando o destino pertence à função chamadora, não a outra função.
+
+**O que isso explica:** os destinos dos nove unresolved estão cobertos por PDATA/BLOCK, mas não são entradas de função; os chamadores CONFIG são nós distintos e curtos. A falha observada é consistente com a lacuna de resolução entre nós. Isso identifica a razão imediata dos unresolved, mas não determina ainda a semântica correta de execução desses alvos: pode ser funclet/out-of-line case, código compartilhado ou uma fronteira de função omitida. Não criar wrapper nem classificar automaticamente qualquer destino interior como função sem confirmar o fluxo PPC.
+
+**Próximo passo concreto:** instrumentar cada site e destino no XEX com a instrução PPC decodificada e contexto suficiente (opcode, LK/AA, destino relativo/absoluto, instruções antes/depois, bloco de origem e proprietário PDATA), e correlacionar com metadados de exceção/funclets e fronteiras PDATA. Se a análise confirmar que são funclets chamados por CONFIG, verificar o modelo de compartilhamento de registradores/stack do SDK antes de escolher uma correção. A correção deve ser específica e preservar a semântica de chamada/retorno; não remover `protectedRanges`, não usar `--force`, não alterar limites PDATA sem evidência.
+
+Nenhuma alteração foi feita no SDK, patch, manifesto ou XEX nesta etapa. Nenhum workflow novo foi disparado e nenhuma APK foi gerada.
+
+Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md` na raiz.
