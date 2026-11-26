@@ -742,3 +742,26 @@ A função `getFunctionContaining()` existe, mas é usada em outras rotinas; sua
 Nenhuma alteração foi feita no SDK, patch, manifesto ou XEX nesta etapa. Nenhum workflow novo foi disparado e nenhuma APK foi gerada.
 
 Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md` na raiz.
+
+
+## Análise PPC dos destinos internos — workflow #26 (2026-11-26)
+
+Run analisado: https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45736987444 (job codegen, run ID 45736987444; falha na validação após codegen).
+
+O log contém dump de palavras PPC em janela de ±0x100 bytes para os destinos. A inspeção dos sites CONFIG mostra que os saltos pendentes são instruções `b` (branch relativo incondicional, opcode primário 18) com LK=0 — não são `bl`. Exemplos extraídos do log:
+- site `0x829E21D4`: word `0x4800029C`, destino `0x829E2470`.
+- site `0x829E21EC`: word `0x4800026C`, destino `0x829E2458`.
+- site `0x829E217C`: word `0x480000C8`, destino `0x829E2244`.
+- site `0x82221824`: word `0x4800000C`, destino `0x82221830`.
+- site `0x82B85AA4`: word `0x48000044`, destino `0x82B85AE8`.
+- site `0x828A7D18`: o log de validação registra `b 0x828A7E40` a partir desse site; o word do site deve ser conferido no dump direcionado antes de fechar a análise dessa família.
+
+LK=0 significa que o branch não grava uma nova LR. Portanto, estes são saltos de fluxo/tail branches para endereços interiores, e não chamadas normais com retorno. Isto é consistente com CONFIG trampolines/stubs que transferem execução para blocos internos de uma rotina PDATA, preservando o contexto de chamada e LR existente. Não prova, por si só, se cada alvo é um funclet ou um bloco compartilhado; o tratamento precisa preservar a mesma função de fluxo do PPC.
+
+Os destinos internos têm palavras válidas. Por exemplo, `0x829E2470` contém `0x817D0038` (lwz r11,56(r29)); `0x829E2458` contém `0x7C7F1B78` (mr r31,r3); `0x829E2244` contém `0x389D0010` (addi r4,r29,16); `0x82221830` contém `0xC0210070` (lfs f1,112(r1)). Os endereços pertencem a blocos decodificados sob PDATA existente conforme os logs VX_PROTECT.
+
+**Conclusão refinada:** a causa imediata permanece no resolvedor Merge que não representa branches sem LK para labels de outro FunctionNode. A correção provavelmente deve modelar esses destinos como referências de fluxo para bloco/label de outra função (ou unir/associar os blocos à função proprietária quando a semântica exigir), não como CallTarget de chamada normal. Antes de alterar o SDK, verificar o gerador de código e a representação de branches/tail calls: determinar se o branch sem LK pode emitir salto direto para label de outro nó sem criar epílogo/retorno, e como manter a execução dentro do mesmo contexto de registradores. Conferir separadamente a família de `0x828A7E40` e as demais instruções/site words restantes; não inferir todas apenas pelos quatro exemplos.
+
+Nenhuma mudança no SDK, patches, XEX ou manifesto nesta etapa. Nenhum APK gerado. A análise veio do log do run #26, sem nova compilação.
+
+Local atualizado: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, `CONTINUATION.md` na raiz.
