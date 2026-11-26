@@ -670,3 +670,25 @@ Local atualizado: repositório `marcuscastrooutlok-web/Project-VeronicaX`, branc
 - Próxima ação: obter os logs desse run e corrigir apenas a origem indevida que estiver comprovadamente cobrindo os destinos. Preservar proteções válidas de funções e dados.
 
 Local: repositório `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, workflow `.github/workflows/android-codegen-check.yml` e continuidade `CONTINUATION.md` na raiz.
+
+
+## Resultado do Workflow #26 — origem das proteções (2026-11-26)
+
+- Execução #26: https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45736987444
+- Commit executado: `b4fc960fa8620a10b44ba20f816a5e53c27a9daa`.
+- Checkout, validação do XEX, aplicação do patch e compilação host do codegen passaram; a etapa de execução/validação do codegen falhou com `UnresolvedCall (9)`.
+- A instrumentação identificou intervalos brutos que cobrem os seis destinos. Para todos, há PDATA e blocos decodificados atribuídos a funções proprietárias; nenhum intervalo CONFIG, HELPER/IMPORT ou DATA apareceu cobrindo os destinos:
+  - `0x829E2470`: PDATA da função `0x829E1BC8` em `[0x829E1BC8,0x829E24E0)`; blocos `[0x829E2460,0x829E24A4)` e `[0x829E2470,0x829E24A4)`.
+  - `0x829E2458`: PDATA da função `0x829E1BC8`; bloco `[0x829E2440,0x829E2460)`.
+  - `0x829E2244`: PDATA da função `0x829E1BC8`; blocos `[0x829E222C,0x829E2258)` e `[0x829E2244,0x829E2258)`.
+  - `0x82221830`: PDATA da função `0x822214D0`; bloco `[0x82221828,0x82221870)`.
+  - `0x82B85AE8`: PDATA da função `0x82B85A48`; bloco `[0x82B85ADC,0x82B85AF8)`.
+  - `0x828A7E40`: PDATA da função `0x828A7970`; bloco `[0x828A7E3C,0x828A7E60)`.
+- Os intervalos mesclados que excluem os destinos são: `[0x829E1AC8,0x829E2EB4)`, `[0x82221158,0x82221A00)`, `[0x82B859C8,0x82B85BFC)` e `[0x828A7970,0x828A82DC)`.
+- O dump PPC ao redor dos destinos mostra instruções válidas e blocos internos de fluxo; por exemplo, `0x829E2470` contém `0x817D0038`, e `0x829E2244` contém `0x389D0010`. Esses destinos estão dentro de blocos já associados a funções PDATA, não são bytes sem mapeamento.
+
+**Conclusão técnica:** a exclusão por `protectedRanges` é consequência de ownership PDATA/BLOCK já presente no grafo. Ainda não é seguro simplesmente retirar essas proteções: precisamos verificar por que o grafo/validador trata os destinos como chamadas sem função apesar de estarem dentro de blocos de funções PDATA (e se os destinos são verdadeiras entradas de função ou alvos internos de fluxo). O próximo passo é rastrear as chamadas que originam cada `UnresolvedCall` e confrontar os destinos com as fronteiras/entradas das funções PDATA, não expandir GAP_FILL por cima de código já pertencente a outra função.
+
+Nenhum manifesto ou XEX foi alterado. Nenhuma APK foi gerada.
+
+Local: repositório `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md` na raiz.
