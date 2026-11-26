@@ -146,8 +146,63 @@ jobs:
           if s.count(needle2) != 1:
               raise SystemExit("Could not find unique splitRegion call")
           s = s.replace(needle2, needle2 + diag2)
+          needle3 = '  std::sort(protectedRanges.begin(), protectedRanges.end());\n'
+          diag3 = r'''  // Temporary diagnostics: identify the exact source of protected bytes.
+            constexpr uint32_t vxProtectedTargets[] = {0x829E2470, 0x82221830, 0x82B85AE8,
+                0x828A7E40, 0x829E2458, 0x829E2244};
+            for (uint32_t target : vxProtectedTargets) {
+              for (const auto& [addr, node] : graph.functions()) {
+                const int authority = static_cast<int>(node->authority());
+                auto emit = [&](const char* kind, uint32_t start, uint32_t end) {
+                  if (target >= start && target < end)
+                    REXCODEGEN_WARN("VX_PROTECT target=0x{:08X} kind={} owner=0x{:08X} authority={} range=[0x{:08X},0x{:08X})",
+                      target, kind, addr, authority, start, end);
+                };
+                if (node->authority() == FunctionAuthority::CONFIG) {
+                  auto it = ctx.Config().functions.find(addr);
+                  if (it != ctx.Config().functions.end()) {
+                    const uint32_t size = it->second.getSize(addr);
+                    if (size && addr + size >= addr) emit("CONFIG", addr, addr + size);
+                  }
+                }
+                if (node->authority() == FunctionAuthority::PDATA) {
+                  auto it = scan.pdataSizes.find(addr);
+                  if (it != scan.pdataSizes.end() && it->second && addr + it->second >= addr)
+                    emit("PDATA", addr, addr + it->second);
+                }
+                if (node->authority() == FunctionAuthority::HELPER ||
+                    node->authority() == FunctionAuthority::IMPORT) {
+                  if (node->size() && addr + node->size() >= addr)
+                    emit("HELPER_IMPORT", addr, addr + node->size());
+                }
+                for (const auto& block : node->blocks())
+                  if (block.size && block.base + block.size >= block.base)
+                    emit("BLOCK", block.base, block.base + block.size);
+              }
+              for (const auto& range : scan.dataRegions)
+                if (target >= range.first && target < range.second)
+                  REXCODEGEN_WARN("VX_PROTECT target=0x{:08X} kind=DATA range=[0x{:08X},0x{:08X})",
+                    target, range.first, range.second);
+            }
+          '''
+          if s.count(needle3) != 1:
+              raise SystemExit("Could not find unique protectedRanges sort insertion point")
+          s = s.replace(needle3, diag3 + needle3)
+          needle4 = '  auto subtractProtectedRanges = [&](const CodeRegion& segment) {\n'
+          diag4 = r'''  for (uint32_t target : vxProtectedTargets) {
+            for (const auto& range : mergedRanges) {
+              if (target >= range.first && target < range.second)
+                REXCODEGEN_WARN("VX_PROTECT_MERGED target=0x{:08X} range=[0x{:08X},0x{:08X})",
+                  target, range.first, range.second);
+            }
+          }
+
+          '''
+          if s.count(needle4) != 1:
+              raise SystemExit("Could not find unique mergedRanges diagnostic insertion point")
+          s = s.replace(needle4, diag4 + needle4)
           p.write_text(s)
-          print("Inserted code/data-region and GAP_FILL segment diagnostics.")
+          print("Inserted protected-range origin diagnostics.")
           PY
 
       - name: Add temporary XEX branch-target diagnostics to pinned SDK
