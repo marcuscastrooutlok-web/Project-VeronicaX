@@ -909,3 +909,21 @@ Não alterar o lookup de produção ainda. Primeiro criar teste unitário de int
 Nenhum patch de produção foi alterado. Nenhum APK foi gerado. Próxima ação: adicionar diagnóstico temporário no registro PDATA e no lookup para coletar ExceptionInfo e todos os candidatos de ownership, executar novamente apenas o workflow de validação codegen e então decidir a correção mínima.
 
 Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md`.
+
+
+## Instrumentação PDATA SEH/C++ EH adicionada ao workflow — 2026-11-26
+
+Alterado somente o workflow de validação host para inserir diagnóstico temporário no SDK pinned durante o job, imediatamente após `parseExceptionInfo(binary, beginAddr)` em `src/codegen/phase_register.cpp`.
+
+Novo diagnóstico:
+- Para os seis PDATA owners de interesse, registra `ExceptionFlag`, sucesso/ausência de `exInfo`, presença de metadados e tipo SEH ou C++ EH.
+- Se SEH: imprime cada scope com `tryStart`, `tryEnd`, `filter` e `handler`.
+- Se C++ EH: imprime cada `unwindMap.action` e cada `tryBlocks.handlers.handlerAddress`.
+- Para cada destino coberto pelo PDATA atualmente processado, percorre todos os `graph.functions()` e imprime todos os candidatos cujo `containsAddress(target)` é verdadeiro, com base, fim e autoridade. Isso permite enxergar sobreposições que o lookup predecessor-only pode esconder.
+
+Commit do workflow: `d5ca4ea6496fbacf2f9f2603f1d73122ba0f4934`.
+Arquivo: `.github/workflows/android-codegen-check.yml`.
+
+A consulta disponível de runs por commit não retornou execuções (o wrapper consultado filtra runs disparados por pull request); portanto, ainda não há ID/resultado de execução confirmado nesta etapa. Não afirmar que os novos logs já foram produzidos. Nenhum patch de produção foi alterado e nenhum APK foi gerado.
+
+Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md`.
