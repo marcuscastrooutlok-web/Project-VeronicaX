@@ -617,3 +617,28 @@ Commit: `c43b747ff1cfce666b91ad25e75bb7bf382b6f92`. O push na branch `android-ar
 O run #23 confirmou seis destinos em codeRegions e fora de dataRegions, com 9 unresolved persistentes. O XEX e os manifestos permanecem inalterados; nenhuma APK foi iniciada.
 
 Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md`.
+
+
+## Resultado do Workflow #24 e próximo diagnóstico — 2026-11-26
+
+Execução #24: https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45733602281
+Commit executado: `25ac7b30f92b6ec0c395ef4da3b09c4fe448725d`.
+
+Resultados:
+- Aplicação do patch e compilação host do codegen passaram; a etapa `Run VeronicaX codegen` falhou na validação final com os mesmos 9 `UnresolvedCall`.
+- Os logs `VX_FINAL_SEGMENT` confirmam que os seis destinos estão dentro dos segmentos finais retornados por `splitRegionOnTerminators()`. Exemplos: `0x829E2470` no segmento `[0x829E1BC8,0x829E24E0)`; `0x82221830` em `[0x822214D0,0x82221870)`; `0x82B85AE8` em `[0x82B85A48,0x82B85AF8)`.
+- Ainda não há log que prove que esses destinos foram cobertos por intervalos candidatos depois de `subtractProtectedRanges()`, nem qual condição impediu o registro.
+
+Hipótese técnica prioritária: a subtração de intervalos deixa um candidato cujo início já está coberto por ownership/entry preexistente, e a condição atual do GAP_FILL descarta o candidato inteiro ao testar apenas `available.start`. Isso pode deixar um destino mais adiante sem função. É uma hipótese, não uma causa confirmada.
+
+Nova instrumentação adicionada no workflow para cada destino dentro de segmento:
+- imprimir todos os intervalos candidatos depois de `subtractProtectedRanges()`;
+- indicar se cada candidato contém o destino;
+- registrar se o início do candidato já é entry point ou tem proprietário;
+- resumir se o destino ficou protegido/fora de todos os candidatos.
+
+Commit da instrumentação: `b4bab4e6a5b7d2c81b739276252ca303c3195bde`. Aguardar o workflow correspondente e decidir a correção com base nos registros `VX_CANDIDATE`/ `VX_CANDIDATE_SUMMARY`.
+
+Nenhum manifesto ou XEX foi alterado. Nenhuma APK foi iniciada.
+
+Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md`.
