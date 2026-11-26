@@ -115,7 +115,14 @@ jobs:
           needle2 = '    auto segments = splitRegionOnTerminators(region, binary, knownCallables);\n'
           diag2 = r'''    for (uint32_t target : vxTargets) {
               if (target >= region.start && target < region.end) {
-                REXCODEGEN_WARN("VX_SEGMENT target=0x{:08X} parent=[0x{:08X},0x{:08X})", target, region.start, region.end);
+                REXCODEGEN_WARN("VX_PARENT target=0x{:08X} parent=[0x{:08X},0x{:08X})", target, region.start, region.end);
+              }
+            }
+            for (const auto& segment : segments) {
+              for (uint32_t target : vxTargets) {
+                if (target >= segment.start && target < segment.end) {
+                  REXCODEGEN_WARN("VX_FINAL_SEGMENT target=0x{:08X} segment=[0x{:08X},0x{:08X})", target, segment.start, segment.end);
+                }
               }
             }
           '''
