@@ -832,3 +832,39 @@ Isso prova que o SDK tem uma convenção de chamadas para funclets SEH que compa
 Nenhum patch ou código do projeto foi alterado; nenhum workflow ou APK foi iniciado nesta etapa. O runtime dispatcher não foi localizado nos caminhos inicialmente tentados no commit pinned (404), portanto a hipótese de dispatch dinâmico permanece não comprovada.
 
 Local: marcuscastrooutlok-web/Project-VeronicaX, branch android-arm64, arquivo CONTINUATION.md.
+
+
+## Continuação: implementação real de funclets e classificação de branches — 2026-11-26
+
+Inspeção adicional do SDK pinned bd833a2, em src/codegen/function_graph.cpp e include/rex/codegen/function_types.h.
+
+### Como o SDK reconhece funclets
+FunctionGraph::markFuncletRegisterSharing() não usa heurística de leitura/escrita de registradores. Ele percorre ExceptionInfo dos nós proprietários:
+- SEH: scope.handler e scope.filter;
+- C++ EH: unwindMap.action e tryBlocks.handlers.handlerAddress.
+Para cada endereço que coincide com uma entrada FunctionNode, coleta o intervalo [base,end). Depois marca como sharesRegisters os nós cujas bases ficam dentro desses intervalos, inclusive nós adicionais que compartilham o mesmo tail.
+
+O comentário do próprio código explica que funclets executam no frame do proprietário, com registradores não voláteis ainda vivos. Para um funclet marcado, BuilderContext sincroniza registradores localizados para PPCContext antes/depois da chamada.
+
+### Limitação decisiva
+A marcação de funclet só funciona quando o handler/filter/action corresponde a uma entrada de FunctionNode já existente. Ela não cria uma entrada para um endereço interior arbitrário.
+
+FunctionGraph::classifyTarget() confirma:
+- import -> Import;
+- entry point de outra função -> Function;
+- endereço dentro da função chamadora -> InternalLabel;
+- endereço interior de outra função -> Unknown.
+
+Portanto, mesmo que um dos seis destinos pertença a uma faixa funclet, a classificação atual não oferece transferência para esse endereço interno. E chamar a base do funclet não equivale a saltar para o endereço interior apontado pelo PPC branch.
+
+### Nova conclusão sobre lookup
+O defeito de getFunctionContaining() permanece confirmado: upper_bound + apenas um candidato anterior não é lookup correto para intervalos sobrepostos se o candidato mais próximo não contiver o endereço. A correção precisa considerar candidatos anteriores, com regra determinística para escolher owner; não basta simplesmente retornar o primeiro intervalo encontrado.
+
+### Próxima etapa técnica
+- Obter os ExceptionInfo efetivos do relatório codegen do VeronicaX e cruzar handler/filter/action com os seis destinos e com as bases PDATA.
+- Determinar se há PDATA sobrepostos e qual é o owner real de cada endereço.
+- Criar teste unitário para lookup de intervalos aninhados/sobrepostos.
+- Projetar um mecanismo de branch direto para label/endereço interno de outro node que mantenha o PPCContext. Não converter b LK=0 em chamada normal nem emitir goto C++ entre funções.
+
+Nenhum patch de produção foi alterado nesta etapa; nenhum workflow ou APK foi iniciado.
+Local: marcuscastrooutlok-web/Project-VeronicaX, branch android-arm64, CONTINUATION.md.
