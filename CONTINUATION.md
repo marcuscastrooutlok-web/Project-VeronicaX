@@ -606,3 +606,14 @@ Conclusão: scanner/data classification não é a causa. A instrumentação atua
 Nenhuma compilação APK Android foi iniciada.
 
 Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md`.
+
+
+## Instrumentação seguinte — limites dos segmentos GAP_FILL — 2026-11-25
+
+Após o run #23, foi ajustada a etapa temporária `Add code-region and GAP_FILL target diagnostics` no workflow para imprimir também os limites exatos dos segmentos finais retornados por `splitRegionOnTerminators()` que contêm cada destino. O diagnóstico anterior só mostrava a região pai, o que não bastava para confirmar a cobertura real.
+
+Commit: `c43b747ff1cfce666b91ad25e75bb7bf382b6f92`. O push na branch `android-arm64` dispara nova execução do workflow. Próximo passo: ler `VX_FINAL_SEGMENT` para saber se os destinos estão em segmentos finais ou se a segmentação os omite; então instrumentar o intervalo disponível após subtração/proteções e a propriedade após registro, se necessário.
+
+O run #23 confirmou seis destinos em codeRegions e fora de dataRegions, com 9 unresolved persistentes. O XEX e os manifestos permanecem inalterados; nenhuma APK foi iniciada.
+
+Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md`.
