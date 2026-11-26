@@ -587,3 +587,22 @@ Foi adicionada uma etapa temporária no workflow `.github/workflows/android-code
 Commit que adicionou a instrumentação: `70b88394f8736f7175c4d291b30da05febad25e9`. O push na branch `android-arm64` deve iniciar o workflow automaticamente. Ainda não há resultado desta nova execução; aguardar o job e avaliar os registros `VX_REGION` e `VX_SEGMENT`. A instrumentação é diagnóstica e não altera o XEX, os manifestos ou a lógica de registro de funções.
 
 Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md`.
+
+
+## Resultado do Workflow #23 — classificação dos seis destinos — 2026-11-25
+
+Execução: https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45723948720
+Commit do checkout: `80908fdaa097c1b960fefdbaa2d1dd785d3bd884`.
+
+Resultados confirmados nos logs:
+- O job `codegen` concluiu com falha na etapa `Run VeronicaX codegen`; checkout, hash do XEX, aplicação do patch e compilação host passaram.
+- Os seis destinos `0x829E2470`, `0x82221830`, `0x82B85AE8`, `0x828A7E40`, `0x829E2458` e `0x829E2244` estão em `scan.codeRegions` e fora de `scan.dataRegions`.
+- Para todos os seis, o log anterior ao GAP_FILL registra `entry=false` e `owner=0`.
+- Todos os seis aparecem dentro de uma região pai registrada por `VX_SEGMENT`; isso confirma apenas a região pai, não que cada destino pertença a um segmento final emitido por `splitRegionOnTerminators()`.
+- Após Merge, os seis continuam sem proprietário; a validação termina com os mesmos 9 `UnresolvedCall`.
+
+Conclusão: scanner/data classification não é a causa. A instrumentação atual não registra os limites de cada segmento final nem a decisão de registro/skip do GAP_FILL. Próxima alteração diagnóstica: imprimir segmentos reais retornados por `splitRegionOnTerminators()`, identificar qual segmento cobre cada destino, registrar o motivo de qualquer skip (entry point, função contendo o início, exception data), e verificar a propriedade do endereço logo após cada `graph.addFunction()` e após `discoverPendingFunctions()`/cleanup. Não alterar manifestos nem declarar correção até essa evidência.
+
+Nenhuma compilação APK Android foi iniciada.
+
+Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md`.
