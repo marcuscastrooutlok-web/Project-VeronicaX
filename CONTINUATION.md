@@ -786,3 +786,49 @@ Pesquisa complementar do runtime encontrou no SDK mais recente (commit `ebac1cf0
 Não implementar dispatch dinâmico por guest PC, wrapper, chamada normal ou goto entre FunctionNodes sem comprovar que o runtime pinned suporta isso e preserva o mesmo PPCContext. Priorizar rastrear os limites/ownership de funções PDATA e o modelo de SEH funclets. Nenhuma alteração de código ou manifesto nesta etapa; nenhum workflow ou APK iniciado.
 
 Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md`.
+
+
+## Auditoria do lookup de ownership PDATA e validação — 2026-11-26
+
+Inspeção direta do SDK upstream na ref pinned bd833a2:
+- src/codegen/function_graph.cpp
+- include/rex/codegen/function_graph.h
+- src/codegen/phase_validate.cpp
+- src/codegen/phase_merge.cpp
+- src/codegen/builders/context.cpp
+- src/codegen/builders/control_flow.cpp
+- include/rex/codegen/function_node.h
+
+### Nova causa estrutural confirmada: lookup de função contendo endereço
+
+FunctionGraph::getFunctionContaining(addr) usa functionsByBase_.upper_bound(addr), recua uma única posição e testa containsAddress(addr). Se a função de maior base anterior ao endereço não o contém, retorna nullptr sem procurar funções anteriores que possam cobrir o endereço. Em intervalos sobrepostos/aninhados, portanto, o lookup pode perder um PDATA owner válido.
+
+Isto é relevante porque FunctionNode::containsAddress() usa limites globais e, para CONFIG/PDATA, aceita endereços dentro do tamanho declarado mesmo que nenhum bloco os cubra. Mas essa regra só é aplicada ao único candidato escolhido pelo lookup.
+
+### Validação tem comentário de comportamento que não existe na emissão
+
+Em phase_validate.cpp, o validador:
+- aceita destino se estiver dentro dos blocos/limites do próprio nó;
+- aceita entrada exata ou import;
+- depois tenta getFunctionContaining(target);
+- se encontra outro nó, considera o destino coberto e comenta que será tratado como tail call para label interno durante codegen.
+
+Entretanto, FunctionGraph::classifyTarget() não classifica endereço interno de outro nó como InternalLabel nem Function; retorna Unknown. build_b() então cai no fallback de chamada/retorno. Branch condicional em emit_conditional_branch() trata Unknown como fatal. Não há implementação que converta esse alvo em label da função proprietária.
+
+### SEH funclets: mecanismo existente, mas insuficiente sem ponto de entrada
+
+FunctionGraph::markFuncletRegisterSharing() identifica faixas de handlers SEH e marca nós cujas bases ficam dentro dessas faixas com sharesRegisters=true. BuilderContext::emit_function_call() sincroniza registradores não voláteis localizados para PPCContext antes/depois de chamar um nó marcado.
+
+Isso prova que o SDK tem uma convenção de chamadas para funclets SEH que compartilham registradores. Não prova que os seis destinos pendentes sejam funclets, nem permite chamar a entrada do nó quando o branch precisa começar num endereço interior. A semântica de branch LK=0 continua diferente de uma chamada comum.
+
+### Caminho seguro de investigação
+
+1. Corrigir/estudar o lookup de intervalos sobrepostos com teste unitário, verificando todos os candidatos anteriores e autoridade/ownership, sem mudar o comportamento de produção ainda.
+2. Cruzar cada um dos seis destinos e seus PDATA ranges com ExceptionInfo::asSeh() e scopes/handlers; confirmar se algum destino coincide com início de funclet, handler ou bloco interior.
+3. Localizar o mecanismo de execução por endereço guest no commit pinned (não usar APIs encontradas apenas em commits posteriores).
+4. Só então desenhar representação/emit de tail branch para ponto interno, preservando contexto PPC e registradores compartilhados.
+
+### Estado
+Nenhum patch ou código do projeto foi alterado; nenhum workflow ou APK foi iniciado nesta etapa. O runtime dispatcher não foi localizado nos caminhos inicialmente tentados no commit pinned (404), portanto a hipótese de dispatch dinâmico permanece não comprovada.
+
+Local: marcuscastrooutlok-web/Project-VeronicaX, branch android-arm64, arquivo CONTINUATION.md.
