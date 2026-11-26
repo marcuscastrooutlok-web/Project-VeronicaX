@@ -125,6 +125,23 @@ jobs:
                 }
               }
             }
+            for (const auto& segment : segments) {
+              auto candidates = subtractProtectedRanges(segment);
+              for (uint32_t target : vxTargets) {
+                if (target < segment.start || target >= segment.end) continue;
+                bool covered = false;
+                for (const auto& candidate : candidates) {
+                  if (target >= candidate.start && target < candidate.end) covered = true;
+                  REXCODEGEN_WARN("VX_CANDIDATE target=0x{:08X} range=[0x{:08X},0x{:08X}) contains={} start_entry={} start_owner=0x{:08X}",
+                    target, candidate.start, candidate.end,
+                    target >= candidate.start && target < candidate.end,
+                    graph.isEntryPoint(candidate.start),
+                    graph.getFunctionContaining(candidate.start) ? graph.getFunctionContaining(candidate.start)->base() : 0);
+                }
+                REXCODEGEN_WARN("VX_CANDIDATE_SUMMARY target=0x{:08X} protected_or_missing={}",
+                  target, !covered);
+              }
+            }
           '''
           if s.count(needle2) != 1:
               raise SystemExit("Could not find unique splitRegion call")
