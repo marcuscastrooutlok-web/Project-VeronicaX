@@ -868,3 +868,44 @@ O defeito de getFunctionContaining() permanece confirmado: upper_bound + apenas 
 
 Nenhum patch de produção foi alterado nesta etapa; nenhum workflow ou APK foi iniciado.
 Local: marcuscastrooutlok-web/Project-VeronicaX, branch android-arm64, CONTINUATION.md.
+
+
+## Logs #26 reabertos: metadados reais de SEH/funclets — 2026-11-26
+
+Reaberto o log integral do job `codegen` do workflow #26 (run `45736987444`, job `139632496727`) e cruzado com a implementação pinned `rexglue/rexglue-sdk@bd833a2`, especialmente `src/codegen/phase_register.cpp`.
+
+### Evidência confirmada nos logs
+Os seis destinos continuam cobertos por funções PDATA e blocos PPC decodificados:
+- `0x829E2470`, `0x829E2458`, `0x829E2244` -> PDATA owner `0x829E1BC8`, faixa `[0x829E1BC8,0x829E24E0)`.
+- `0x82221830` -> owner `0x822214D0`, faixa `[0x822214D0,0x82221870)`.
+- `0x82B85AE8` -> owner `0x82B85A48`, faixa `[0x82B85A48,0x82B85AF8)`.
+- `0x828A7E40` -> owner `0x828A7970`, faixa `[0x828A7970,0x828A82DC)`.
+
+Os logs #26 não contêm dump dos objetos `ExceptionInfo` ou scopes. Portanto, não permitem afirmar se os seis destinos são handlers, filters, funclets ou apenas blocos internos dos PDATA owners.
+
+### Como obter a evidência que falta
+Em `phase_register.cpp`, PDATA é registrado após `parseExceptionInfo(binary, beginAddr)`, condicionado ao `ExceptionFlag` da entrada PDATA. O parser SEH lê cada entrada de scope como:
+- `tryStart`
+- `tryEnd`
+- `filter`
+- `handler`
+
+Para `__finally`, handler é função separada; para `__except`, filter é função separada e handler fica inline. Os endereços de handlers/filters são adicionados a `discoveredFuncs`. A informação é anexada ao FunctionNode por `setFunctionExceptionInfo()`.
+
+O próximo diagnóstico precisa ser inserido no ponto após o parse e antes de mover `exInfo->info` para o grafo, imprimindo para cada PDATA owner listado:
+- `ExceptionFlag`, tipo SEH/C++ EH e presença/ausência de `exInfo`;
+- para SEH, todos os scopes com `tryStart/tryEnd/filter/handler`;
+- para C++ EH, todos os `unwindMap.action` e `tryBlocks.handlers.handlerAddress`;
+- para cada um dos seis destinos, se coincide exatamente com handler/filter/action e se existe FunctionNode com essa base.
+
+Isso separa de forma conclusiva funclets SEH/C++ EH de branches para blocos internos comuns. Não inferir funclet só pela proximidade ou pelo PDATA range.
+
+### Lookup PDATA: impacto ainda não provado
+O código pinned de `getFunctionContaining()` confirma que só testa o predecessor imediato de `upper_bound(addr)`. Em intervalos sobrepostos, isso pode retornar null mesmo existindo um PDATA owner anterior que contém o endereço. Os logs #26 provam os owners pelas faixas PDATA/blocos instrumentados, mas o lookup do grafo retornou `target_owner=none`; precisamos imprimir todos os candidatos anteriores (base, end, authority, containsAddress) para os seis destinos para identificar se há um predecessor mais novo que mascara o PDATA owner.
+
+Não alterar o lookup de produção ainda. Primeiro criar teste unitário de intervalos sobrepostos/aninhados e definir regra de desempate por autoridade/ownership.
+
+### Estado
+Nenhum patch de produção foi alterado. Nenhum APK foi gerado. Próxima ação: adicionar diagnóstico temporário no registro PDATA e no lookup para coletar ExceptionInfo e todos os candidatos de ownership, executar novamente apenas o workflow de validação codegen e então decidir a correção mínima.
+
+Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md`.
