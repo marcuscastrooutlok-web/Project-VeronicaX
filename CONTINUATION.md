@@ -765,3 +765,24 @@ Os destinos internos têm palavras válidas. Por exemplo, `0x829E2470` contém `
 Nenhuma mudança no SDK, patches, XEX ou manifesto nesta etapa. Nenhum APK gerado. A análise veio do log do run #26, sem nova compilação.
 
 Local atualizado: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, `CONTINUATION.md` na raiz.
+
+
+## Emissão de branches inter-nó e runtime dispatch — 2026-11-26
+
+Inspecionado no SDK pinned `bd833a2`:
+- `src/codegen/builders/context.cpp`, função `BuilderContext::emit_conditional_branch`.
+- `src/codegen/builders/control_flow.cpp`, função `build_b` (análise anterior).
+- `src/codegen/builders/helpers.h`, helper `emitBranchWithBoundsCheck`.
+
+Confirmação adicional:
+- Branch condicional para `InternalLabel` emite goto local.
+- Branch condicional para entrada de função/import emite chamada condicional seguida de `return`.
+- Branch condicional para `Unknown` emite erro fatal condicional.
+- Assim, endereço interior de outro FunctionNode não tem caminho de emissão válido.
+
+Pesquisa complementar do runtime encontrou no SDK mais recente (commit `ebac1cf0d04bab0042a5dd6148b34ab3953e9c0d`) referências a `FunctionDispatcher`, cuja tabela associa endereços guest a ponteiros de funções recompiladas. Essa evidência é de versão posterior e **não foi tomada como prova do comportamento no commit pinned**. A implementação pinned de dispatcher ainda precisa ser aberta e comparada antes de escolher uma solução.
+
+### Decisão técnica mantida
+Não implementar dispatch dinâmico por guest PC, wrapper, chamada normal ou goto entre FunctionNodes sem comprovar que o runtime pinned suporta isso e preserva o mesmo PPCContext. Priorizar rastrear os limites/ownership de funções PDATA e o modelo de SEH funclets. Nenhuma alteração de código ou manifesto nesta etapa; nenhum workflow ou APK iniciado.
+
+Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md`.
