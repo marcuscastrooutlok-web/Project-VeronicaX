@@ -658,3 +658,15 @@ Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arqui
 - Não houve geração de APK; codegen ainda não validou.
 
 Local atualizado: repositório `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md` na raiz.
+
+
+## Próxima instrumentação — origem dos intervalos protegidos (2026-11-26)
+
+- Atualizado o workflow para identificar, antes da mesclagem de `protectedRanges`, quais intervalos brutos cobrem cada um dos seis destinos ainda sem resolução.
+- Os novos registros `VX_PROTECT` informam tipo (CONFIG, PDATA, HELPER_IMPORT, BLOCK ou DATA), base da função, autoridade numérica e limites do intervalo.
+- Os registros `VX_PROTECT_MERGED` mostram os intervalos resultantes da união que efetivamente exclui cada destino.
+- A instrumentação não remove proteções nem altera o manifesto/XEX; é somente diagnóstico.
+- Commit do workflow: `b4fc960fa8620a10b44ba20f816a5e53c27a9daa`. O push em `android-arm64` deve iniciar a próxima execução automaticamente.
+- Próxima ação: obter os logs desse run e corrigir apenas a origem indevida que estiver comprovadamente cobrindo os destinos. Preservar proteções válidas de funções e dados.
+
+Local: repositório `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, workflow `.github/workflows/android-codegen-check.yml` e continuidade `CONTINUATION.md` na raiz.
