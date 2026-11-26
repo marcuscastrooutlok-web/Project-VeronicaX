@@ -692,3 +692,33 @@ Local: repositório `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-
 Nenhum manifesto ou XEX foi alterado. Nenhuma APK foi gerada.
 
 Local: repositório `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md` na raiz.
+
+
+## Rastreamento das nove chamadas — destinos internos de PDATA (2026-11-26)
+
+Fonte: logs completos do workflow #26, job `139632496727`:
+https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45736987444
+
+O diagnóstico `VX_GRAPH` identificou os chamadores CONFIG e confirmou que o grafo retorna `target_owner=none` e `target_is_entry=false` para cada destino. Os chamadores incluem:
+- `0x829E21D0`, `0x829E1D60`, `0x829E1D38`, `0x829E21E0`, `0x829E2178`, `0x829E21B0`, `0x829E2230`, `0x829E2220`.
+- `0x82221818`.
+- `0x82B85AB0`, `0x82B85AA0`, `0x82B85A98`.
+- `0x828A7D18`.
+Os logs repetem os mesmos pares por etapas distintas; o total validado permanece 9 unresolved calls.
+
+Os destinos estão cobertos por funções PDATA existentes, mas não são seus pontos de entrada:
+- `0x829E2470` e `0x829E2458` pertencem ao intervalo PDATA `[0x829E1BC8,0x829E24E0)`.
+- `0x829E2244` também está nesse intervalo.
+- `0x82221830` pertence a `[0x822214D0,0x82221870)`.
+- `0x82B85AE8` pertence a `[0x82B85A48,0x82B85AF8)`.
+- `0x828A7E40` pertence a `[0x828A7970,0x828A82DC)`.
+
+As instruções PPC nos destinos são instruções internas válidas (por exemplo, `0x829E2470: 817D0038`, `0x82221830: C0210070`, `0x82B85AE8: 93BE0000`, `0x828A7E40: 815F00E8`); não há evidência de que sejam inícios de funções convencionais. O ponto de chamada é um `bl` ou uma chamada de thunk CONFIG; o grafo só resolve chamadas para uma entrada conhecida ou label interno da mesma função, conforme documentação pública do SDK.
+
+A documentação pública do ReXGlue descreve explicitamente “tail call to mid-function address” como causa possível de UnresolvedCall e recomenda corrigir a fronteira da função contenedora. Referência: https://git.tankantswebhosting.com/Seth/rexglue-sdk/wiki/Generated-Code-Structure e visão do pipeline https://git.tankantswebhosting.com/Seth/rexglue-sdk/wiki/Codegen-Pipeline-Overview. Isso é compatível com os logs, mas ainda precisamos decidir qual fronteira correta usar em cada PDATA; não se deve inventar seis novas entradas nem encolher PDATA sem inspecionar o fluxo de controle e os retornos.
+
+**Próxima ação:** instrumentar a resolução de jumps no Merge para mostrar a regra de resolução aplicada a cada destino e a instrução PPC/site exato, e examinar os limites dos blocos/terminadores ao redor de cada destino. Determinar se são funções fragmentadas/outlined, tail-call para interior ou uma entrada omitida no registro. Só então corrigir o grafo ou o manifesto.
+
+Nenhum XEX, manifesto ou limite PDATA foi alterado. Nenhuma APK foi gerada.
+
+Local: repositório `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md` na raiz.
