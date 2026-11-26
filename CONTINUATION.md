@@ -642,3 +642,19 @@ Commit da instrumentação: `b4bab4e6a5b7d2c81b739276252ca303c3195bde`. Aguardar
 Nenhum manifesto ou XEX foi alterado. Nenhuma APK foi iniciada.
 
 Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md`.
+
+
+## Workflow #25 — resultado da subtração de intervalos protegidos (2026-11-26)
+
+- Run #25: [45735738274](https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45735738274), commit do workflow `b4bab4e6a5b7d2c81b739276252ca303c3195bde`.
+- A compilação host do codegen passou; a execução do codegen falhou na validação, mantendo `UnresolvedCall (9)`.
+- Para todos os seis destinos observados, o diagnóstico mostrou `protected_or_missing=true` após `subtractProtectedRanges(segment)`:
+  - `0x82221830` no segmento `[0x822214D0,0x82221870)`.
+  - `0x828A7E40` no segmento `[0x828A79EC,0x828A7E9C)`.
+  - `0x829E2470`, `0x829E2458` e `0x829E2244` no segmento `[0x829E1BC8,0x829E24E0)`.
+  - `0x82B85AE8` no segmento `[0x82B85A48,0x82B85AF8)`.
+- Conclusão comprovada: os destinos sobrevivem ao scanner e ao split, mas são excluídos pela união/subtração de `protectedRanges`. Isso ainda não identifica qual função/bloco específico protege cada endereço.
+- Próxima ação: instrumentar a construção de `protectedRanges` antes da ordenação/mesclagem, imprimindo para cada destino os intervalos brutos que o cobrem, sua origem (CONFIG, PDATA, HELPER, IMPORT, bloco descoberto ou data region), base da função e autoridade. Em seguida, instrumentar os intervalos mesclados que cobrem cada destino. Não remover proteção nem editar limites do manifesto até identificar a origem exata.
+- Não houve geração de APK; codegen ainda não validou.
+
+Local atualizado: repositório `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md` na raiz.
