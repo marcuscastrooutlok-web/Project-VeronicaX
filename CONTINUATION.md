@@ -994,3 +994,12 @@ Commits do workflow:
 O push do commit final deve disparar o workflow #29. A execução e a compilação ainda precisam ser verificadas; não presumir que passaram. Próxima ação: consultar o run #29 e, se concluir, examinar os registros `VX_PDATA_ENTRY`, `VX_EH_*`, `VX_OWNER_CANDIDATE` e `VX_OWNER_SUMMARY`. Não gerar APK nem alterar código de produção antes desses resultados.
 
 Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md` na raiz.
+
+
+### Execuções disparadas pela instrumentação corrigida
+
+- Workflow #29 — run ID `45930293338`, commit `79a0b55ed4ffe036e51110bebad3b1ada758da01`: disparado, ainda em execução no momento da consulta.
+- Workflow #30 — run ID `45930317555`, commit final `ea04b4cb355eb361f7baffd1e3d63e95fda92a11`: disparado, ainda em execução no momento da consulta. Este é o run que contém a correção dos escapes de nova linha e deve ser tratado como validação principal.
+- Links: [#29](https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45930293338) · [#30](https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45930317555).
+
+Próxima ação: acompanhar principalmente o #30; se o script Python falhar ao localizar os pontos de inserção ou se a compilação C++ falhar, corrigir a instrumentação e repetir. Se passar, extrair os diagnósticos completos antes de qualquer mudança de produção.
