@@ -942,3 +942,14 @@ Run: https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45
 - Nenhum APK foi produzido.
 
 Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md` na raiz.
+
+
+## Correção da instrumentação PDATA após workflow #27 (2026-11-26)
+
+- Corrigido somente `.github/workflows/android-codegen-check.yml`: o step temporário agora copia `fn.ExceptionFlag` (bit-field) para `const auto exceptionFlag = static_cast<uint32_t>(fn.ExceptionFlag)` antes de passá-lo ao logger.
+- Isso corrige o erro de compilação observado no run #27 sem alterar o SDK pinned, o parser, patches de produção ou a semântica do codegen.
+- Commit: `507248c58aea840d873470d4882402c8ad7b9c01` na branch `android-arm64`.
+- O push deve disparar novo workflow porque o caminho do workflow está incluído no filtro `paths`. A nova execução ainda precisa ser consultada; não assumir sucesso.
+- Próximo passo: verificar o novo run; se compilar, coletar `VX_EH_*` e `VX_OWNER_CANDIDATE` para os seis destinos. Nenhum APK deve ser gerado nesta etapa.
+
+Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md` na raiz.
