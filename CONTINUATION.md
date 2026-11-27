@@ -1020,3 +1020,25 @@ Próxima ação: acompanhar principalmente o #30; se o script Python falhar ao l
 - Commit da correção: de338bd26d4bfe400d70f8b2a9ca07023636173d.
 - Nenhum código de produção PPC/ReXGlue foi alterado; nenhum APK foi gerado.
 - Próximo passo: executar novamente, obter os registros `VX_PDATA_ENTRY`, `VX_EH_*` e `VX_OWNER_*`.
+
+
+## Workflow #32 — diagnóstico conclusivo dos destinos internos
+
+- Run: https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45932269671
+- Commit do workflow: `de338bd26d4bfe400d70f8b2a9ca07023636173d`
+- Resultado: workflow concluído com falha na validação do codegen; compilação do host SDK passou.
+- Diagnóstico PDATA para os seis destinos: todos têm `exception_flag=0`; `parseExceptionInfo` retornou `parsed=false` e `has_info=false`. Portanto, não há evidência de que sejam funclets SEH/C++.
+- Depois do registro de PDATA, a enumeração independente de `graph.functions()` encontrou exatamente um FunctionNode contendo cada endereço (`authority=4`):
+  - `0x829E2470` em `[0x829E1BC8,0x829E24E0)`
+  - `0x829E2458` em `[0x829E1BC8,0x829E24E0)`
+  - `0x829E2244` em `[0x829E1BC8,0x829E24E0)`
+  - `0x82221830` em `[0x822214D0,0x82221870)`
+  - `0x82B85AE8` em `[0x82B85A48,0x82B85AF8)`
+  - `0x828A7E40` em `[0x828A7970,0x828A82DC)`
+- O codegen ainda termina com `UnresolvedCall (9)`.
+- Conclusão: os destinos são endereços internos de FunctionNodes existentes, não entradas PDATA independentes e não handlers identificados. A validação consegue reconhecer cobertura por um nó, mas a resolução de branches/chamadas não converte o destino interior em transferência válida. Investigar e corrigir a semântica de transferência entre FunctionNodes preservando PC/LR/contexto PPC; não transformar branch sem LK em chamada/retorno e não remover a validação.
+- Nenhuma alteração de produção no SDK e nenhum APK foram feitos nesta etapa.
+
+## Próxima etapa
+
+Projetar uma representação segura para branch PPC sem LK para endereço interior de outro FunctionNode (ou segmentação/entrada de bloco que mantenha estado PPC), cobrindo todos os chamadores e destinos acima. Adicionar teste de regressão que prove preservação de PC, LR e registradores/contexto antes de habilitar a geração Android. Reexecutar a validação XEX antes de iniciar APK.
