@@ -295,8 +295,9 @@ jobs:
                   for (uint32_t target : targets)
                     selectedOwner |= target >= beginAddr && target < beginAddr + size;
                   if (selectedOwner) {
+                    const auto exceptionFlag = static_cast<uint32_t>(fn.ExceptionFlag);
                     REXCODEGEN_WARN("VX_EH_OWNER base=0x{:08X} size=0x{:X} exception_flag={} parsed={} has_info={} seh={} cxx={}",
-                      beginAddr, size, fn.ExceptionFlag, exInfo.has_value(),
+                      beginAddr, size, exceptionFlag, exInfo.has_value(),
                       exInfo && exInfo->info.hasInfo(),
                       exInfo && exInfo->info.isSeh(), exInfo && exInfo->info.isCxx());
                     if (exInfo) {
