@@ -1003,3 +1003,12 @@ Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arqui
 - Links: [#29](https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45930293338) · [#30](https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45930317555).
 
 Próxima ação: acompanhar principalmente o #30; se o script Python falhar ao localizar os pontos de inserção ou se a compilação C++ falhar, corrigir a instrumentação e repetir. Se passar, extrair os diagnósticos completos antes de qualquer mudança de produção.
+
+
+## Workflow #30 — correção do heredoc duplicado (27/11/2026)
+- Run #30: https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45930317555 falhou na etapa de instrumentação, antes da compilação do SDK.
+- Logs confirmaram que o script Python de PDATA foi executado com sucesso, mas havia um segundo terminador `PY` fora do heredoc, causando `PY: command not found` (exit 127).
+- Corrigido somente `.github/workflows/android-codegen-check.yml`: removido o terminador duplicado.
+- Commit: 217f0d7c57e449b3cf0b6fa70833c2cc045a1b7a.
+- Nenhum código de produção ReXGlue/PPC foi alterado; nenhum APK foi gerado.
+- Próximo passo: executar a workflow corrigida e coletar `VX_PDATA_ENTRY`, `VX_EH_*` e `VX_OWNER_*`.
