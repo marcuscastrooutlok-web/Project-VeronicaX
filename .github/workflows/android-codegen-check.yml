@@ -285,57 +285,69 @@ jobs:
           from pathlib import Path
           p = Path("thirdparty/rexglue-sdk/src/codegen/phase_register.cpp")
           s = p.read_text()
-          needle = '      exInfo = parseExceptionInfo(binary, beginAddr);\n'
+          needle = '    graph.addFunction(beginAddr, size, FunctionAuthority::PDATA, true);\\n'
           diag = r"""
-                // Temporary VeronicaX: dump exception metadata and all overlapping owners.
+                // Run for every matching PDATA entry, including entries without ExceptionFlag.
                 {
                   constexpr uint32_t targets[] = {0x829E2470, 0x82221830, 0x82B85AE8,
                       0x828A7E40, 0x829E2458, 0x829E2244};
-                  bool selectedOwner = false;
-                  for (uint32_t target : targets)
-                    selectedOwner |= target >= beginAddr && target < beginAddr + size;
-                  if (selectedOwner) {
-                    const auto exceptionFlag = static_cast<uint32_t>(fn.ExceptionFlag);
-                    REXCODEGEN_WARN("VX_EH_OWNER base=0x{:08X} size=0x{:X} exception_flag={} parsed={} has_info={} seh={} cxx={}",
-                      beginAddr, size, exceptionFlag, exInfo.has_value(),
-                      exInfo && exInfo->info.hasInfo(),
-                      exInfo && exInfo->info.isSeh(), exInfo && exInfo->info.isCxx());
-                    if (exInfo) {
-                      if (const auto* seh = exInfo->info.asSeh()) {
-                        REXCODEGEN_WARN("VX_EH_SEH owner=0x{:08X} thunk=0x{:08X} scope_table=0x{:08X} scopes={}",
-                          beginAddr, seh->handlerThunk, seh->scopeTableAddr, seh->scopes.size());
+                  for (uint32_t target : targets) {
+                    if (target >= beginAddr && target < beginAddr + size) {
+                      REXCODEGEN_WARN("VX_PDATA_ENTRY target=0x{:08X} owner=0x{:08X} size=0x{:X} exception_flag={} prolog={}",
+                        target, beginAddr, size, static_cast<uint32_t>(fn.ExceptionFlag), fn.PrologLength);
+                      REXCODEGEN_WARN("VX_EH_RESULT owner=0x{:08X} parsed={} has_info={}",
+                        beginAddr, exInfo.has_value(), exInfo && exInfo->info.hasInfo());
+                      if (exInfo && exInfo->info.isSeh()) {
+                        const auto* seh = exInfo->info.asSeh();
+                        REXCODEGEN_WARN("VX_EH_SEH owner=0x{:08X} scopes={}", beginAddr, seh->scopes.size());
                         for (const auto& scope : seh->scopes)
                           REXCODEGEN_WARN("VX_EH_SCOPE owner=0x{:08X} try=[0x{:08X},0x{:08X}) filter=0x{:08X} handler=0x{:08X}",
                             beginAddr, scope.tryStart, scope.tryEnd, scope.filter, scope.handler);
-                      } else if (const auto* cxx = exInfo->info.asCxx()) {
-                        REXCODEGEN_WARN("VX_EH_CXX owner=0x{:08X} thunk=0x{:08X} func_info=0x{:08X} unwind_entries={} try_blocks={}",
-                          beginAddr, cxx->handlerThunk, cxx->funcInfoAddr,
-                          cxx->unwindMap.size(), cxx->tryBlocks.size());
+                      } else if (exInfo && exInfo->info.isCxx()) {
+                        const auto* cxx = exInfo->info.asCxx();
+                        REXCODEGEN_WARN("VX_EH_CXX owner=0x{:08X} unwind_entries={} try_blocks={}",
+                          beginAddr, cxx->unwindMap.size(), cxx->tryBlocks.size());
                         for (const auto& entry : cxx->unwindMap)
-                          REXCODEGEN_WARN("VX_EH_UNWIND owner=0x{:08X} action=0x{:08X} to_state={}",
-                            beginAddr, entry.action, entry.toState);
+                          REXCODEGEN_WARN("VX_EH_UNWIND owner=0x{:08X} action=0x{:08X}",
+                            beginAddr, entry.action);
                         for (const auto& block : cxx->tryBlocks)
                           for (const auto& handler : block.handlers)
-                            REXCODEGEN_WARN("VX_EH_HANDLER owner=0x{:08X} address=0x{:08X} try_low={} try_high={} catch_high={}",
-                              beginAddr, handler.handlerAddress, block.tryLow, block.tryHigh, block.catchHigh);
+                            REXCODEGEN_WARN("VX_EH_HANDLER owner=0x{:08X} address=0x{:08X}",
+                              beginAddr, handler.handlerAddress);
                       }
-                    }
-                  }
-                  for (uint32_t target : targets) {
-                    if (target < beginAddr || target >= beginAddr + size) continue;
-                    for (const auto& [candidateBase, candidate] : graph.functions()) {
-                      if (candidate->containsAddress(target))
-                        REXCODEGEN_WARN("VX_OWNER_CANDIDATE target=0x{:08X} base=0x{:08X} end=0x{:08X} authority={}",
-                          target, candidateBase, candidate->end(),
-                          static_cast<int>(candidate->authority()));
                     }
                   }
                 }
           """
           if s.count(needle) != 1:
-              raise SystemExit("Could not uniquely locate parseExceptionInfo insertion point")
-          p.write_text(s.replace(needle, needle + diag))
-          print("Inserted PDATA SEH/C++ EH and overlapping-owner diagnostics.")
+              raise SystemExit("Could not uniquely locate PDATA registration point")
+          s = s.replace(needle, diag + "\\n" + needle)
+          needle2 = '  REXCODEGEN_TRACE("Analyze: added {} functions from PDATA", pdataAdded);'
+          diag2 = r"""
+            // Scan every graph node after PDATA registration, independent of current PDATA entry.
+            {
+              constexpr uint32_t targets[] = {0x829E2470, 0x82221830, 0x82B85AE8,
+                  0x828A7E40, 0x829E2458, 0x829E2244};
+              for (uint32_t target : targets) {
+                size_t matches = 0;
+                for (const auto& [base, candidate] : graph.functions()) {
+                  if (candidate->containsAddress(target)) {
+                    ++matches;
+                    REXCODEGEN_WARN("VX_OWNER_CANDIDATE target=0x{:08X} base=0x{:08X} end=0x{:08X} authority={}",
+                      target, base, candidate->end(), static_cast<int>(candidate->authority()));
+                  }
+                }
+                REXCODEGEN_WARN("VX_OWNER_SUMMARY target=0x{:08X} candidates={}", target, matches);
+              }
+            }
+          """
+          if s.count(needle2) != 1:
+              raise SystemExit("Could not uniquely locate end of PDATA registration")
+          s = s.replace(needle2, diag2 + "\\n" + needle2)
+          p.write_text(s)
+          print("Inserted unconditional PDATA and full graph ownership diagnostics.")
+          PY
+          
           PY
 
       - name: Build pinned ReXGlue host codegen
