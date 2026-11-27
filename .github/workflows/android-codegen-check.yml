@@ -285,7 +285,7 @@ jobs:
           from pathlib import Path
           p = Path("thirdparty/rexglue-sdk/src/codegen/phase_register.cpp")
           s = p.read_text()
-          needle = '    graph.addFunction(beginAddr, size, FunctionAuthority::PDATA, true);\\n'
+          needle = '    graph.addFunction(beginAddr, size, FunctionAuthority::PDATA, true);\n'
           diag = r"""
                 // Run for every matching PDATA entry, including entries without ExceptionFlag.
                 {
@@ -321,7 +321,7 @@ jobs:
           """
           if s.count(needle) != 1:
               raise SystemExit("Could not uniquely locate PDATA registration point")
-          s = s.replace(needle, diag + "\\n" + needle)
+          s = s.replace(needle, diag + "\n" + needle)
           needle2 = '  REXCODEGEN_TRACE("Analyze: added {} functions from PDATA", pdataAdded);'
           diag2 = r"""
             // Scan every graph node after PDATA registration, independent of current PDATA entry.
@@ -343,7 +343,7 @@ jobs:
           """
           if s.count(needle2) != 1:
               raise SystemExit("Could not uniquely locate end of PDATA registration")
-          s = s.replace(needle2, diag2 + "\\n" + needle2)
+          s = s.replace(needle2, diag2 + "\n" + needle2)
           p.write_text(s)
           print("Inserted unconditional PDATA and full graph ownership diagnostics.")
           PY
@@ -385,7 +385,7 @@ jobs:
           test -s generated/default/veronicax_pch.h
           grep -q 'set(GENERATED_SOURCES' generated/default/sources.cmake
           echo "Codegen output verified."
-          find generated/default -maxdepth 1 -type f -printf '%f %s bytes\\n' | sort
+          find generated/default -maxdepth 1 -type f -printf '%f %s bytes\n' | sort
 
       - name: Remove private game input
         if: always()
