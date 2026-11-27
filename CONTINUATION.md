@@ -1042,3 +1042,29 @@ Próxima ação: acompanhar principalmente o #30; se o script Python falhar ao l
 ## Próxima etapa
 
 Projetar uma representação segura para branch PPC sem LK para endereço interior de outro FunctionNode (ou segmentação/entrada de bloco que mantenha estado PPC), cobrindo todos os chamadores e destinos acima. Adicionar teste de regressão que prove preservação de PC, LR e registradores/contexto antes de habilitar a geração Android. Reexecutar a validação XEX antes de iniciar APK.
+
+
+## Análise do mecanismo de transferência PPC (SDK bd833a2)
+
+Arquivos revistos nesta etapa:
+- `src/codegen/builders/control_flow.cpp`
+- `src/codegen/builders/context.cpp`
+- `src/codegen/function_graph.cpp`
+- `include/rex/codegen/function_graph.h`
+- `include/rex/codegen/function_node.h`
+- `src/codegen/phase_validate.cpp`
+- `src/codegen/codegen_writer.cpp`
+
+Constatações:
+- `classifyTarget()` classifica como `InternalLabel` apenas endereço dentro do caller; endereço interior de outro FunctionNode continua `Unknown`.
+- `build_b()` usa `goto loc_target` para label local; para Function/Import usa chamada e `return`. Seu fallback `Unknown` também chama e retorna quando fora dos limites do caller — isso não preserva um branch PPC sem LK para um endereço interior.
+- Branches condicionais têm caminho semelhante: Function/Import chama e retorna; Unknown gera fatal.
+- `emit_function_call()` invoca a função gerada com `(ctx, base)`, mas não fornece um parâmetro de PC inicial. A localização de registradores não voláteis em variáveis locais é uma otimização por função; somente funclets marcados `sharesRegisters` recebem sincronização explícita de r14-r31.
+- O writer emite cada FunctionNode como uma função C++ independente. Portanto, um `goto` C++ entre FunctionNodes não é possível.
+- A validação aceita endereço coberto por outro FunctionNode, mas essa aceitação não fornece por si só um mecanismo de execução para o endereço interior.
+
+Implicação de projeto:
+- Não basta classificar destino interior como Function nem chamar a função proprietária: isso começa em `base()`, não no endereço PPC pedido.
+- Não basta gerar `goto` entre funções, nem usar a chamada existente sem provar o estado de registradores locals/ctx e LR.
+- Próxima investigação deve determinar como criar entradas de bloco/segmento com estado PPC totalmente materializado, ou como transformar as funções afetadas em uma unidade de emissão que permita transferência local. A solução precisa tratar branches condicionais e incondicionais, calls com LK e jump tables sem alterar a semântica de cada instrução.
+- Nenhuma mudança de produção foi aplicada; nenhum APK foi gerado.
