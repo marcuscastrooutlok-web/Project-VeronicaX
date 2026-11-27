@@ -973,3 +973,24 @@ Run: https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45
 Corrigir a instrumentação temporária para garantir que o diagnóstico de exceções seja emitido no ponto efetivamente executado para cada PDATA owner (sem depender de uma condição de seleção que não foi satisfeita). Adicionar também um diagnóstico independente do parse de EH: para cada um dos seis destinos, imprimir todos os `FunctionNode` de `graph.functions()` que contêm o endereço, incluindo base, fim, autoridade e resultado de `containsAddress`. Executar novamente apenas o workflow host de codegen. Não alterar `FunctionGraph`/builders nem gerar APK até obter esses dados e definir uma estratégia que preserve o branch PPC `b` sem link (PC guest, LR e registradores).
  
 Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md` na raiz.
+
+
+
+## Correção da instrumentação PDATA após workflow #28 — workflow #29 disparado (2026-11-26)
+
+O log #28 não mostrou os diagnósticos porque a instrumentação anterior estava condicionada a `fn.ExceptionFlag` e à seleção de owners dentro daquele bloco. A ausência dos registros, portanto, não permitia concluir que o XEX não tivesse metadados EH.
+
+Alterações feitas somente em `.github/workflows/android-codegen-check.yml`:
+- A instrumentação foi movida para o ponto de registro de cada entrada PDATA, fora da condição `if (fn.ExceptionFlag)`.
+- Para qualquer entrada PDATA que cubra um dos seis destinos, registra base, tamanho, ExceptionFlag, PrologLength e resultado de `parseExceptionInfo`.
+- Quando houver metadados, registra SEH scopes ou C++ EH unwind/handlers.
+- Depois de registrar todas as entradas PDATA, percorre todos os nós do grafo para cada um dos seis destinos e imprime todos os candidatos com base, fim e autoridade, além da contagem total. Essa varredura não depende do owner corrente nem do predecessor retornado por `getFunctionContaining()`.
+- Nenhuma alteração foi feita no SDK de produção, no FunctionGraph, nos builders ou na semântica PPC.
+
+Commits do workflow:
+- `79a0b55ed4ffe036e51110bebad3b1ada758da01` — primeira revisão da instrumentação incondicional.
+- `ea04b4cb355eb361f7baffd1e3d63e95fda92a11` — correção dos escapes de nova linha no script Python do workflow.
+
+O push do commit final deve disparar o workflow #29. A execução e a compilação ainda precisam ser verificadas; não presumir que passaram. Próxima ação: consultar o run #29 e, se concluir, examinar os registros `VX_PDATA_ENTRY`, `VX_EH_*`, `VX_OWNER_CANDIDATE` e `VX_OWNER_SUMMARY`. Não gerar APK nem alterar código de produção antes desses resultados.
+
+Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md` na raiz.
