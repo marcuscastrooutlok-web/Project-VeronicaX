@@ -1068,3 +1068,21 @@ Implicação de projeto:
 - Não basta gerar `goto` entre funções, nem usar a chamada existente sem provar o estado de registradores locals/ctx e LR.
 - Próxima investigação deve determinar como criar entradas de bloco/segmento com estado PPC totalmente materializado, ou como transformar as funções afetadas em uma unidade de emissão que permita transferência local. A solução precisa tratar branches condicionais e incondicionais, calls com LK e jump tables sem alterar a semântica de cada instrução.
 - Nenhuma mudança de produção foi aplicada; nenhum APK foi gerado.
+
+
+## Continuação — arquitetura de emissão e estado local por função
+
+Revisão adicional de `src/codegen/codegen_writer.cpp` e `src/codegen/builders/context.cpp` no SDK fixado em `bd833a2`:
+
+- `CodegenWriter::write()` coleta e ordena FunctionNodes e chama `fn->emitCpp(emitCtx)` separadamente para cada nó. Cada corpo é então escrito como função C++ própria nos arquivos `*_recomp.N.cpp`.
+- As referências entre funções são emitidas como chamadas C++ `name(ctx, base)`; a assinatura atual não inclui endereço PPC inicial alternativo.
+- `BuilderContext::emit_function_call()` usa `findCallTarget(base)` para obter a função ou import previamente resolvido. Para funções comuns, emite apenas `targetFn(ctx, base)`.
+- A sincronização explícita de r14-r31 em `ctx` é específica para destino com `sharesRegisters()` (funclets); não é um protocolo geral de troca de contexto entre funções.
+- Consequentemente, uma solução por dispatcher/entrada interior exige mais que adicionar um parâmetro PC: precisa também materializar/restaurar todos os registradores que o gerador mantém em variáveis locais, além de CSR/FPSCR e estado associado. Uma simples chamada para a função proprietária não garante equivalência.
+
+Direção de investigação priorizada:
+1. Verificar se é possível gerar uma função de bloco/entry wrapper que inicialize todas as variáveis locais a partir de PPCContext e escreva de volta o estado antes de transferências externas.
+2. Alternativamente, agrupar nós relacionados em uma única unidade de controle com labels locais, sem criar gotos C++ entre funções.
+3. Antes de implementar, identificar no código o conjunto exato de registradores localizados e o fluxo de sincronização de entrada/saída; adicionar testes para branch interior, branch condicional e retorno/call.
+
+Sem mudanças de produção, sem workaround e sem APK nesta etapa.
