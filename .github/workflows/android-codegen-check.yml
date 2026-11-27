@@ -294,7 +294,7 @@ jobs:
                   for (uint32_t target : targets) {
                     if (target >= beginAddr && target < beginAddr + size) {
                       REXCODEGEN_WARN("VX_PDATA_ENTRY target=0x{:08X} owner=0x{:08X} size=0x{:X} exception_flag={} prolog={}",
-                        target, beginAddr, size, static_cast<uint32_t>(fn.ExceptionFlag), fn.PrologLength);
+                        target, beginAddr, size, static_cast<uint32_t>(fn.ExceptionFlag), static_cast<uint32_t>(fn.PrologLength));
                       REXCODEGEN_WARN("VX_EH_RESULT owner=0x{:08X} parsed={} has_info={}",
                         beginAddr, exInfo.has_value(), exInfo && exInfo->info.hasInfo());
                       if (exInfo && exInfo->info.isSeh()) {
