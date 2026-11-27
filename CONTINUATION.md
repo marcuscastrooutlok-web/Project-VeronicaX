@@ -1012,3 +1012,11 @@ Próxima ação: acompanhar principalmente o #30; se o script Python falhar ao l
 - Commit: 217f0d7c57e449b3cf0b6fa70833c2cc045a1b7a.
 - Nenhum código de produção ReXGlue/PPC foi alterado; nenhum APK foi gerado.
 - Próximo passo: executar a workflow corrigida e coletar `VX_PDATA_ENTRY`, `VX_EH_*` e `VX_OWNER_*`.
+
+
+## Workflow #31 — diagnóstico do segundo bit-field e correção (27/11/2026)
+- Run #31: https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45930656858 avançou até compilar 746/777 objetos; falhou em `phase_register.cpp` porque `fn.PrologLength` também é bit-field e não pode ser passado diretamente ao logger variádico.
+- `fn.ExceptionFlag` já estava corrigido por cast; apliquei o mesmo tratamento a `fn.PrologLength` com `static_cast<uint32_t>(fn.PrologLength)` na instrumentação temporária do workflow.
+- Commit da correção: de338bd26d4bfe400d70f8b2a9ca07023636173d.
+- Nenhum código de produção PPC/ReXGlue foi alterado; nenhum APK foi gerado.
+- Próximo passo: executar novamente, obter os registros `VX_PDATA_ENTRY`, `VX_EH_*` e `VX_OWNER_*`.
