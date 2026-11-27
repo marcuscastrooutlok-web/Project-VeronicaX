@@ -1086,3 +1086,45 @@ Direção de investigação priorizada:
 3. Antes de implementar, identificar no código o conjunto exato de registradores localizados e o fluxo de sincronização de entrada/saída; adicionar testes para branch interior, branch condicional e retorno/call.
 
 Sem mudanças de produção, sem workaround e sem APK nesta etapa.
+
+
+## Inspeção do estado PPC localizado na emissão (SDK bd833a2)
+
+Arquivos consultados diretamente em `rexglue/rexglue-sdk@bd833a2`:
+- `src/codegen/builders/context.cpp`
+- `src/codegen/builders/builder_context.h`
+- `src/codegen/function_graph.cpp`
+- `src/codegen/codegen_writer.cpp`
+
+### Mapeamento exato de estado que pode sair de PPCContext
+
+Em `BuilderContext::r/f/v/cr/ctr/xer/reserved()`, o SDK escolhe entre `ctx.*` e variáveis C++ locais conforme a configuração e marca os elementos utilizados em `RecompilerLocalVariables`:
+
+- GPR: r0, r2, r11 e r12 podem virar locais por `nonArgumentRegistersAsLocalVariables`; r14–r31 podem virar locais por `nonVolatileRegistersAsLocalVariables`, exceto quando `fn.sharesRegisters()`.
+- FPR: f0 pode virar local pela configuração de registradores não-argumento; f14–f31 podem virar locais pela configuração de não-voláteis, sujeito à mesma exceção.
+- VMX: v32–v63 podem virar locais pela configuração de não-argumento; v14–v31 e v64–v127 podem virar locais pela configuração de não-voláteis.
+- CR0–CR7 podem virar locais se `crRegistersAsLocalVariables` estiver habilitado.
+- CTR, XER e reservation register podem virar locais por suas opções próprias.
+- Temporários adicionais rastreados: `temp`, `vTemp`, `env` (PPCContext para setjmp), e `ea`.
+
+O cabeçalho `builder_context.h` confirma que esses flags são registrados individualmente em `RecompilerLocalVariables`.
+
+### Como os locais são emitidos
+
+Em `FunctionNode::emitCpp()`, o SDK:
+1. cria `RecompilerLocalVariables localVariables`;
+2. gera o corpo usando os acessores acima;
+3. declara no escopo da função somente os locais efetivamente usados;
+4. as declarações observadas são inicializadas com `{{}}` (zero/default initialization), não com cópia automática dos campos correspondentes de `ctx`.
+
+A sincronização especial de r14–r31 observada em `BuilderContext::emit_function_call()` continua restrita a chamadas para destinos `sharesRegisters()`. Não existe, nos trechos verificados, protocolo genérico de entrada/saída para todos os locais listados.
+
+### Consequência técnica
+
+Uma função de entrada alternativa que simplesmente invoque o corpo gerado com PC interior não pode presumir que os locais terão os valores PPC existentes no momento do branch: os locais nascem inicializados independentemente do contexto. Para preservar a semântica, seria necessário gerar um caminho explícito de importação/exportação de todo o estado efetivamente localizado (incluindo CR/FPR/VMX/CTR/XER e demais elementos usados), e tratar corretamente temporários e CSR/FPSCR. Isso reforça que uma simples chamada C++ ao proprietário não é uma correção válida.
+
+### Decisão
+
+- Não foi alterado o SDK, o patch de produção, `config/functions.toml` ou `config/gaps.toml`.
+- Não foi disparado workflow e nenhum APK foi produzido.
+- Próxima ação: revisar o trecho completo de `FunctionNode::emitCpp()` para mapear eventuais sincronizações/efeitos colaterais finais e examinar os testes existentes de `emitCpp`/tail branch. Depois escolher entre desativar localização de registradores apenas para o grupo de funções envolvido (se o contexto completo ficar coerente) ou criar suporte explícito a entradas de bloco com import/export de estado e testes PPC.
