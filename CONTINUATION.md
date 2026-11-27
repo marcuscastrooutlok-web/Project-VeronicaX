@@ -953,3 +953,23 @@ Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arqui
 - Próximo passo: verificar o novo run; se compilar, coletar `VX_EH_*` e `VX_OWNER_CANDIDATE` para os seis destinos. Nenhum APK deve ser gerado nesta etapa.
 
 Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md` na raiz.
+
+
+
+## Resultado do workflow #28 — instrumentação compila, mas codegen ainda falha (2026-11-26)
+
+Run: https://github.com/marcuscastrooutlok-web/Project-VeronicaX/actions/runs/45928052266
+- Run ID: 45928052266; run number #28; job `codegen`, job ID `140273963453`.
+- Commit testado: `507248c58aea840d873470d4882402c8ad7b9c01`, branch `android-arm64`.
+- Checkout do projeto e do XEX privado, verificação do SHA-256, aplicação do patch GAP_FILL, inserção das instrumentações e compilação host do ReXGlue: sucesso.
+- A cópia local de `fn.ExceptionFlag` corrigiu o erro de compilação do workflow #27.
+- O codegen do `Default.xex` ainda falhou na validação com 9 `UnresolvedCall`, envolvendo os seis destinos: `0x829E2470`, `0x82221830`, `0x82B85AE8`, `0x828A7E40`, `0x829E2458` e `0x829E2244`.
+- Os logs confirmam que os destinos continuam cobertos por faixas PDATA e blocos decodificados; porém o grafo retorna `target_owner=none` e `target_is_entry=false`.
+- Importante: não aparecem registros de execução `VX_EH_OWNER`, `VX_EH_SEH`, `VX_EH_SCOPE`, `VX_EH_CXX`, `VX_EH_UNWIND`, `VX_EH_HANDLER` ou `VX_OWNER_CANDIDATE`. As ocorrências desses nomes no início do log são apenas o script de instrumentação sendo impresso. Assim, a hipótese de funclets SEH/C++ EH ainda não foi confirmada nem descartada.
+- O resumo de candidatos continua indicando `protected_or_missing=true` para os seis destinos.
+- Nenhuma correção de produção foi aplicada e nenhum APK foi gerado.
+
+### Próximo passo técnico
+Corrigir a instrumentação temporária para garantir que o diagnóstico de exceções seja emitido no ponto efetivamente executado para cada PDATA owner (sem depender de uma condição de seleção que não foi satisfeita). Adicionar também um diagnóstico independente do parse de EH: para cada um dos seis destinos, imprimir todos os `FunctionNode` de `graph.functions()` que contêm o endereço, incluindo base, fim, autoridade e resultado de `containsAddress`. Executar novamente apenas o workflow host de codegen. Não alterar `FunctionGraph`/builders nem gerar APK até obter esses dados e definir uma estratégia que preserve o branch PPC `b` sem link (PC guest, LR e registradores).
+ 
+Local: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md` na raiz.
