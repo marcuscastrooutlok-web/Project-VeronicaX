@@ -1186,3 +1186,47 @@ A hipótese anterior de que bastaria desabilitar as opções de registradores lo
 O bloqueio continua sendo a resolução/emissão de branches PPC para endereços interiores de outra FunctionNode. O próximo passo útil é construir um teste de codegen focado no caminho `Unknown`/branch interior, verificando a semântica de branch sem LK e a preservação do PPCContext; não iniciar build Android até esse teste passar.
 
 Nenhuma configuração de produção foi modificada e nenhum workflow foi disparado nesta etapa.
+
+
+## Testes existentes e confirmação do caminho que perde a semântica do branch (SDK bd833a2)
+
+Arquivos examinados:
+- `tests/unit/CMakeLists.txt`
+- `tests/CMakeLists.txt`
+- `tests/unit/codegen/codegen_writer_test.cpp`
+- `src/codegen/function_graph.cpp`
+- `src/codegen/builders/control_flow.cpp`
+- `src/codegen/builders/builder_context.h`
+
+### Infraestrutura disponível
+
+- O SDK já compila testes unitários com Catch2 no alvo `unit_tests`.
+- O teste `codegen_writer_test.cpp` possui fixture reutilizável (`WriterFixture`) que cria um `CodegenContext`, registra FunctionNodes, descobre blocos e valida o C++ emitido.
+- Não há, no CMake de testes unitários atual, um arquivo de teste específico para branch PPC entre FunctionNodes; o teste existente de codegen writer é o ponto de entrada mais próximo.
+- Os testes PPC adicionais estão em `tests/ppc` e são adicionados separadamente.
+
+### Confirmação do defeito no caminho de emissão
+
+Em `FunctionGraph::tryResolveAgainst()`, um salto pendente só é resolvido como tail call quando o destino é exatamente `newFunction->base()`. Destino interior não é resolvido ali.
+
+Em `FunctionNode::tryResolveAsInternalLabel()`, o alvo só é aceito se estiver coberto pelos blocos da própria FunctionNode.
+
+Em `build_b()`, o caso `TargetKind::Unknown`:
+- emite `goto loc_X` somente se o destino estiver dentro dos limites da função atual;
+- fora desses limites, emite `emit_function_call(target)` seguido de `return`.
+
+Isso confirma o ponto crítico: para um branch PPC incondicional sem LK cujo destino seja interior de outra FunctionNode, o fallback atual tenta uma chamada comum, não uma transferência para o endereço interior. A chamada comum não inicia no PC de destino e altera o fluxo de controle do branch.
+
+O cabeçalho de `BuilderContext::emit_conditional_branch()` também descreve o comportamento como branch intra-função ou chamada inter-função; ainda é necessário inspecionar a implementação e o tratamento de `b` condicional no mesmo teste.
+
+### Próximo passo técnico delimitado
+
+Adicionar teste de regressão isolado em `tests/unit/codegen` que:
+1. construa duas FunctionNodes com blocos distintos e um branch do primeiro para um endereço interior do segundo;
+2. verifique a classificação atual como `Unknown` e capture o C++ emitido;
+3. falhe explicitamente se o branch sem LK for convertido em chamada comum + retorno;
+4. em seguida, sirva de base para testar uma implementação de dispatcher/entrada interior que preserve PPCContext e o endereço de destino.
+
+Antes de escrever a correção, precisamos inspecionar a implementação de `emit_conditional_branch()`, `classifyTarget()`, `FunctionNode::emitCpp()` e o pipeline de resolução/validação para determinar o ponto correto de extensão. Não alterar a produção com base apenas neste diagnóstico.
+
+Nenhum arquivo de produção do SDK ou configuração do jogo foi alterado; nenhum workflow foi iniciado.
