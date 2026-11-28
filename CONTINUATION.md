@@ -1128,3 +1128,31 @@ Uma função de entrada alternativa que simplesmente invoque o corpo gerado com 
 - Não foi alterado o SDK, o patch de produção, `config/functions.toml` ou `config/gaps.toml`.
 - Não foi disparado workflow e nenhum APK foi produzido.
 - Próxima ação: revisar o trecho completo de `FunctionNode::emitCpp()` para mapear eventuais sincronizações/efeitos colaterais finais e examinar os testes existentes de `emitCpp`/tail branch. Depois escolher entre desativar localização de registradores apenas para o grupo de funções envolvido (se o contexto completo ficar coerente) ou criar suporte explícito a entradas de bloco com import/export de estado e testes PPC.
+
+
+## Critério para teste de transferência usando PPCContext (SDK bd833a2)
+
+Inspeção final de `src/codegen/builders/context.cpp` esclareceu a configuração que controla os registradores locais:
+
+- `BuilderContext::r()`: GPRs r0, r2, r11 e r12 podem ser locais por `nonArgumentRegistersAsLocalVariables`; r14–r31 por `nonVolatileRegistersAsLocalVariables`, exceto em funções `sharesRegisters()`.
+- `f()`: f0 pode ser local pela primeira opção; f14–f31 pela segunda.
+- `v()`: v32–v63 podem ser locais pela primeira; v14–v31 e v64–v127 pela segunda.
+- `cr()`, `ctr()`, `xer()` e `reserved()` possuem flags independentes: `crRegistersAsLocalVariables`, `ctrAsLocalVariable`, `xerAsLocalVariable` e `reservedRegisterAsLocalVariable`.
+- `temp()`, `v_temp()`, `env()` e `ea()` são temporários internos rastreados, não aliases de registradores PPC persistentes.
+
+A chamada especial para `sharesRegisters()` copia somente os GPRs r14–r31 que foram localizados; ela não é um mecanismo geral de transferência de estado para branches interiores.
+
+### Hipótese experimental delimitada
+
+Uma experiência reversível pode desabilitar, no codegen de teste, todas as opções de registradores PPC em variáveis locais (as duas opções GPR/FPR/VMX e os quatro flags independentes de CR/CTR/XER/reserved). Assim, instruções geradas acessariam o estado persistente por `ctx.*`, permitindo que uma transferência para outro corpo/função leia o mesmo PPCContext.
+
+Isso ainda não prova que o branch interior será emitido corretamente: o gerador precisa também classificar o endereço interior como destino transferível e preservar o fluxo de controle sem transformar `b` em call/return. Temporários de instrução e estado CSR/FPSCR também precisam ser verificados no ponto de saída/entrada.
+
+### Próxima implementação segura
+
+1. Localizar a configuração efetiva usada pelo workflow e confirmar os nomes/valores dos flags no SDK fixado.
+2. Criar um teste unitário isolado que desabilite os locais, gere duas funções com um branch de uma para o interior da outra e inspecione o C++ emitido.
+3. Só depois implementar a transferência de controle para destino interior e adicionar teste para branch condicional, além do incondicional.
+4. Executar codegen/validação antes de qualquer build Android.
+
+Nenhuma opção foi alterada no projeto e nenhum workflow/APK foi iniciado nesta etapa.
