@@ -1282,3 +1282,16 @@ O fixture atual usa apenas instruções `blr` sintéticas e não oferece um mét
 O teste deve ser uma caracterização do defeito primeiro; a correção posterior deve alterar a expectativa para a nova semântica e provar PC inicial correto, LR inalterado em `b/bc` sem LK, e PPCContext preservado. Ainda não foi alterado nenhum arquivo do SDK nem disparado workflow. Próximo passo: examinar `AnalyzeTestBinary()` e os testes PPC existentes para descobrir o decoder público e montar o binário sintético mínimo sem criar instruções manualmente.
 
 Local do registro: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, `CONTINUATION.md` na raiz.
+
+
+## 2026-11-28 — decoder PPC e montagem de teste
+
+- Revisado `rexglue/rexglue-sdk@bd833a2a`.
+- `src/codegen/test_support.cpp` confirma que `AnalyzeTestBinary()` usa `decode_instruction(pc, raw)`, mas apenas registra funções sintéticas e arestas de `bl`; não monta blocos/instruções para o caso de branch interno.
+- Decoder público encontrado em `src/codegen/ppc/instruction.h` / `instruction.cpp`: `rex::codegen::ppc::decode_instruction(uint32_t address, uint32_t code)`. Ele preenche `opcode`, `format` e `branch_target` para I-form e B-form.
+- `FunctionNode::discover()` aceita vetores de `Block`, ponteiros para `ppc::Instruction` e labels. A fixture pode manter as instruções decodificadas em armazenamento estável e passar seus ponteiros.
+- `tests/ppc/CMakeLists.txt` mostra pipeline de Assembly PPC: binutils próprios em `tools/binutils`, assembler big-endian e linker para binário em `0x82010000`. O diretório contém `asm/*.s`, gerados via `rexglue recompile-tests`.
+- A tentativa de buscar arquivos individuais em `tests/ppc/asm` não funcionou porque o connector não lista diretórios; não foi feita alteração no SDK.
+- Próxima ação: buscar/listar nomes de arquivos ASM PPC por pesquisa de repositório ou usar diretamente uma fixture unitária com `decode_instruction` e `Block`. Montar duas FunctionNodes, com instruções em memória estável, para reproduzir `b` e `bc` para o endereço interior da segunda função; depois gerar C++ e verificar que não chama a entrada da função-alvo nem falha com `REX_FATAL`.
+- Controles obrigatórios: branch para entrada exata continua tail call; branch para label dentro da mesma função continua goto local.
+- Nenhuma alteração de produção e nenhuma compilação Android iniciada.
