@@ -1156,3 +1156,33 @@ Isso ainda não prova que o branch interior será emitido corretamente: o gerado
 4. Executar codegen/validação antes de qualquer build Android.
 
 Nenhuma opção foi alterada no projeto e nenhum workflow/APK foi iniciado nesta etapa.
+
+
+## Configuração efetiva dos registradores locais — verificação concluída (SDK bd833a2)
+
+Arquivos consultados diretamente no commit fixado:
+- SDK: `include/rex/codegen/config.h` (blob `8200139a62d727f28389cfd0566d5fccfb57d8df`)
+- SDK: `src/codegen/config.cpp` (blob `5da54a0d825a40ac25bd1c8e7f3a57127be6a679`)
+- Projeto: `veronicax_manifest.toml`
+- Projeto: `config/functions.toml`, `config/gaps.toml`, `config/switch_tables.toml`
+
+### Resultado
+
+1. O manifesto aponta explicitamente para três includes: `config/functions.toml`, `config/gaps.toml` e `config/switch_tables.toml`.
+2. Nenhum desses três arquivos define opções de registradores locais ou flags equivalentes.
+3. No SDK `bd833a2`, os campos de `RecompilerConfig` para localização de registradores são inicializados como `false`:
+   - `ctrAsLocalVariable`
+   - `xerAsLocalVariable`
+   - `reservedRegisterAsLocalVariable`
+   - `crRegistersAsLocalVariables`
+   - `nonArgumentRegistersAsLocalVariables`
+   - `nonVolatileRegistersAsLocalVariables`
+4. O parser TOML só altera esses valores quando encontra as chaves correspondentes (`ctr_as_local`, `xer_as_local`, `reserved_as_local`, `cr_as_local`, `non_argument_as_local`, `non_volatile_as_local`). Como as três configurações atuais não contêm essas chaves, a execução atual já mantém esses registradores em `PPCContext` por padrão.
+
+### Consequência para o diagnóstico
+
+A hipótese anterior de que bastaria desabilitar as opções de registradores locais não explica o erro atual: essas opções já estão desabilitadas na configuração efetiva atual. Não adicionar flags redundantes nem modificar TOML por tentativa.
+
+O bloqueio continua sendo a resolução/emissão de branches PPC para endereços interiores de outra FunctionNode. O próximo passo útil é construir um teste de codegen focado no caminho `Unknown`/branch interior, verificando a semântica de branch sem LK e a preservação do PPCContext; não iniciar build Android até esse teste passar.
+
+Nenhuma configuração de produção foi modificada e nenhum workflow foi disparado nesta etapa.
