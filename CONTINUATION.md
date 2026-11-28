@@ -1230,3 +1230,30 @@ Adicionar teste de regressão isolado em `tests/unit/codegen` que:
 Antes de escrever a correção, precisamos inspecionar a implementação de `emit_conditional_branch()`, `classifyTarget()`, `FunctionNode::emitCpp()` e o pipeline de resolução/validação para determinar o ponto correto de extensão. Não alterar a produção com base apenas neste diagnóstico.
 
 Nenhum arquivo de produção do SDK ou configuração do jogo foi alterado; nenhum workflow foi iniciado.
+
+
+## Revisão direta do codegen no upstream correto — SDK bd833a2a
+
+Acesso ao upstream foi recuperado usando o repositório correto `rexglue/rexglue-sdk` e o ref completo `bd833a2a` (o identificador abreviado `bd833a2` e o owner anterior não funcionaram no fetch da API).
+
+Arquivos efetivamente consultados nesta etapa:
+- `src/codegen/builders/context.cpp` — blob `f78e0d8fe89924e97e0ed3eaf10b688bd36478eb`.
+- `src/codegen/builders/control_flow.cpp` — blob `26957fc249752341ec54f33f565b8db03ae84f5d`.
+- `src/codegen/function_graph.cpp` — blob `fc918bb2d0b170bb338b5f15197664d427e578ac`.
+
+### Confirmações concretas
+
+1. `BuilderContext::emit_conditional_branch()` usa `graph().classifyTarget(target, base, false)`. Para `InternalLabel`, emite goto local. Para `Function/Import`, emite chamada condicionada seguida de return. Para `Unknown`, emite REX_FATAL condicionado. Portanto, o branch condicional não tem suporte a destino interior de outra FunctionNode.
+2. `build_b()` confirma o fallback já identificado: `Unknown` dentro dos limites do caller vira goto; fora deles, chama `emit_function_call(target)` e retorna. Isso não preserva o endereço PPC interior nem a semântica de branch sem LK.
+3. `BuilderContext::emit_function_call()` procura `CallTarget` pelo endereço da instrução atual (`base`). Para função comum emite `targetFn(ctx, base)`; a função é chamada a partir da sua entrada normal, sem parâmetro para PC interior.
+4. `FunctionGraph::classifyTarget()` retorna `InternalLabel` apenas se o destino pertence ao caller; retorna `Function` somente para entrada exata registrada; endereço interior de outra função resulta em `Unknown`.
+5. `FunctionGraph::tryResolveFunction()` tenta label interno na própria função, entrada exata registrada e import. Não há resolução de endereço interior de outra FunctionNode.
+6. `getFunctionContaining()` usa o último base menor/igual ao endereço no índice ordenado e verifica apenas esse candidato; não percorre ranges sobrepostos/aninhados. Isso é uma questão separada a considerar em testes de ranges, mas não altera o diagnóstico confirmado dos seis destinos que já foram encontrados dentro de exatamente um nó.
+
+### Decisão técnica imediata
+
+O defeito está confirmado em ambos os caminhos, condicional e incondicional. Não aplicar ainda a solução de dispatcher nem mudar classificação para `Function`: a assinatura atual `targetFn(ctx, base)` não representa um PC inicial alternativo e a transferência precisa manter estado PPC e não retornar ao chamador como uma chamada comum.
+
+Próxima ação: abrir o fixture `WriterFixture` em `tests/unit/codegen/codegen_writer_test.cpp` e as estruturas públicas de criação de FunctionNode/Block para construir um teste mínimo de branch a endereço interior; verificar também como os builders são despachados no teste. Só depois escrever teste que documente o comportamento defeituoso e desenhar uma API de transferência que preserve PC/LR/contexto. Nenhuma alteração de produção ou workflow Android nesta etapa.
+
+Local do registro: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md` na raiz.
