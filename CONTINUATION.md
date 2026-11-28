@@ -1257,3 +1257,28 @@ O defeito está confirmado em ambos os caminhos, condicional e incondicional. N�
 Próxima ação: abrir o fixture `WriterFixture` em `tests/unit/codegen/codegen_writer_test.cpp` e as estruturas públicas de criação de FunctionNode/Block para construir um teste mínimo de branch a endereço interior; verificar também como os builders são despachados no teste. Só depois escrever teste que documente o comportamento defeituoso e desenhar uma API de transferência que preserve PC/LR/contexto. Nenhuma alteração de produção ou workflow Android nesta etapa.
 
 Local do registro: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, arquivo `CONTINUATION.md` na raiz.
+
+
+## Preparação do teste mínimo de branch para endereço interior — 28/11/2026
+
+Revisão adicional do SDK upstream `rexglue/rexglue-sdk@bd833a2a`:
+
+- `tests/unit/codegen/codegen_writer_test.cpp` (blob `9b4b90c513fb4ebb2773bddbbec3f4ad23cf60ee`) contém `WriterFixture`: carrega binário big-endian sintético em `TestModule`, cria `CodegenContext`, registra funções e usa `FunctionNode::discover()`/ `seal()` antes de executar `CodegenWriter`.
+- `include/rex/codegen/function_node.h` (blob `569acf295fb6ea316552c95c49ff736551514f9c`) confirma que `discover()` recebe blocos, ponteiros de instrução PPC decodificadas e labels; `emitCpp()` exige nó sealed.
+- `include/rex/codegen/function_graph.h` (blob `c64271bbb92e128e14b52b9f414dcfba800337b5`) expõe `addBlockToFunction()`, `addLabelToFunction()`, `addUnresolvedJumpToFunction()` e `classifyTarget()`.
+- `include/rex/codegen/function_types.h` (blob `8c6772dff13f17420a3ff93e6cd2d1230d52c0dd`) define `TargetKind::{InternalLabel, Function, Import, Unknown}`.
+- `include/rex/codegen/test_support.h` (blob `afeba305a60e89164826e58f33f847522b55c5c2`) oferece `TestModule` e `AnalyzeTestBinary()`, este último documentado como helper para símbolos de teste e descoberta de funções.
+
+### Limite encontrado para o teste
+
+O fixture atual usa apenas instruções `blr` sintéticas e não oferece um método direto para fabricar `ppc::Instruction` já decodificada. O caminho mais seguro é reutilizar `AnalyzeTestBinary()` com um binário PPC mínimo e símbolos de função, se o helper efetivamente decodificar branches e registrar as arestas necessárias; caso contrário, construir a instrução pelo decoder público usado pelo analyzer. Não inserir ponteiros artificiais nem assumir layout interno de `Instruction`.
+
+### Casos de teste definidos
+
+1. Duas funções: origem com `b` para um endereço interior da função destino. Confirmar a classificação `Unknown` atual e garantir que a emissão não seja aceita como uma chamada comum à entrada.
+2. Mesmo cenário com `bc`: confirmar que o caminho atual gera o erro de branch não resolvido, não uma transferência.
+3. Caso de controle: branch para entrada exata de outra função continua sendo tail call; branch para label dentro da mesma função continua sendo goto local.
+
+O teste deve ser uma caracterização do defeito primeiro; a correção posterior deve alterar a expectativa para a nova semântica e provar PC inicial correto, LR inalterado em `b/bc` sem LK, e PPCContext preservado. Ainda não foi alterado nenhum arquivo do SDK nem disparado workflow. Próximo passo: examinar `AnalyzeTestBinary()` e os testes PPC existentes para descobrir o decoder público e montar o binário sintético mínimo sem criar instruções manualmente.
+
+Local do registro: `marcuscastrooutlok-web/Project-VeronicaX`, branch `android-arm64`, `CONTINUATION.md` na raiz.
